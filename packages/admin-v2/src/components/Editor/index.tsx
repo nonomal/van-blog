@@ -1,23 +1,24 @@
-import "@toast-ui/editor/dist/toastui-editor.css";
-import { Editor as TEditor } from "@toast-ui/editor";
-import { useEffect, useState } from "react";
-export interface EditorProps {}
-const Editor = (props: EditorProps) => {
-  const [hasInit, setHasInit] = useState(false);
+import Cherry from "cherry-markdown";
+import "cherry-markdown/dist/cherry-markdown.css";
 
+import { useEffect, useRef } from "react";
+export interface EditorProps {
+  setEditor: (editor: Cherry) => void;
+  defaultValue: string;
+}
+const Editor = (props: EditorProps) => {
+  const { current: currentEditor } = useRef<{ editor: Cherry | null }>({
+    editor: null,
+  });
   useEffect(() => {
-    if (!hasInit) {
-      setHasInit(true);
-      new TEditor({
-        el: document.querySelector("#editor")!,
-        height: "500px",
-        initialEditType: "markdown",
-        previewStyle: "vertical",
-        useCommandShortcut: false,
+    if (!currentEditor.editor) {
+      currentEditor.editor = new Cherry({
+        id: "markdown-container",
+        value: props.defaultValue || "",
       });
+      props.setEditor(currentEditor.editor);
     }
-    return () => {};
-  }, [hasInit, setHasInit]);
-  return <div id="editor"> </div>;
+  }, [currentEditor, props]);
+  return <div style={{ height: 500 }} id="markdown-container"></div>;
 };
 export default Editor;
