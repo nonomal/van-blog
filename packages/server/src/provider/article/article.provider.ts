@@ -524,13 +524,99 @@ export class ArticleProvider {
     if (option.withWordCount) {
       view = isPublic ? this.publicView : this.adminView;
     }
-    let articlesQuery = this.articleModel.find(query, view).sort(sort);
-    if (option.pageSize != -1) {
-      articlesQuery = articlesQuery
-        .skip(option.pageSize * option.page - option.pageSize)
-        .limit(option.pageSize);
+    let topArticles: any[] = [];
+    if (isPublic) {
+      // 先找一下 被顶置的文章吧。。。
+      topArticles = await this.articleModel
+        .find(
+          {
+            $and: [
+              ...$and,
+              {
+                top: { $exists: true, $ne: null },
+              },
+              {
+                top: { $exists: true, $ne: 0 },
+              },
+              {
+                top: { $exists: true, $ne: '' },
+              },
+            ],
+          },
+          view,
+        )
+        .sort({ top: -1 });
+      console.log('顶置文章数', topArticles.length);
     }
-    let articles = await articlesQuery.exec();
+    let articlesQuery = this.articleModel
+      .find(
+        {
+          $and: [
+            ...$and,
+            {
+              $or: [
+                {
+                  top: '',
+                },
+                {
+                  top: null,
+                },
+                {
+                  top: 0,
+                },
+                {
+                  top: { $exists: false },
+                },
+              ],
+            },
+          ],
+        },
+        view,
+      )
+      .sort(sort);
+    let articles: any[] = [];
+    if (option.pageSize != -1) {
+      if (topArticles.length > 0) {
+        // 三种情况，
+        // 1. 已经有的top文章覆盖了这页。
+        // 2. 已经有的top文章部分覆盖
+        // 3. top 文章完全没覆盖。
+        if (topArticles.length >= option.pageSize * option.page) {
+          console.log('完全 cover');
+          // 不需要再去查别的了。
+          const start = option.pageSize * option.page - option.pageSize;
+          articles = topArticles.slice(start, start + option.pageSize);
+        } else {
+          // top 文章 cover 不住
+          const skip = option.pageSize * option.page - option.pageSize;
+          if (topArticles.length > skip) {
+            const start = option.pageSize * option.page - option.pageSize;
+            const end = topArticles.length;
+            articles = topArticles.slice(start, end);
+            // 剩下的数量
+            const lastNum = option.pageSize - (end - start);
+            console.log('部分 cover,剩余数量：', start, end, lastNum);
+            articlesQuery = articlesQuery.limit(lastNum);
+            const restArticles = await articlesQuery.exec();
+            articles = [...articles, ...restArticles];
+            // 能部分 cover
+          } else {
+            console.log('不能 cover');
+            // 完全不能 cover
+            const topNum = topArticles.length;
+            articlesQuery = articlesQuery
+              .skip(option.pageSize * option.page - option.pageSize - topNum)
+              .limit(option.pageSize);
+            articles = await articlesQuery.exec();
+          }
+        }
+      } else {
+        articlesQuery = articlesQuery
+          .skip(option.pageSize * option.page - option.pageSize)
+          .limit(option.pageSize);
+        articles = await articlesQuery.exec();
+      }
+    }
     // withWordCount 只会返回当前分页的文字数量
 
     const total = await this.articleModel.count(query).exec();
