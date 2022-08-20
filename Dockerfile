@@ -78,7 +78,7 @@ ENV VAN_BLOG_CDN_URL "https://www.mereith.com"
 # 复制静态文件
 WORKDIR /usr/share/nginx/html/
 COPY --from=ADMIN_BUILDER /usr/src/app/dist/ ./admin/
-COPY default.conf /etc/nginx/http.d/default.conf
+COPY nginx/default.conf /etc/nginx/http.d/default.conf
 # 复制入口文件
 WORKDIR /app
 COPY ./entrypoint.sh ./
