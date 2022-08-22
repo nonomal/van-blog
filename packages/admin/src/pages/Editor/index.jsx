@@ -72,6 +72,32 @@ export default function () {
       vd?.setValue(currObj.content);
     }
   }, [currObj, vd, loading]);
+  const saveContent = async () => {
+    const v = vd?.getValue();
+    setLoading(true);
+    if (type == 'article') {
+      await updateArticle(currObj?.id, { content: v });
+      await fetchData();
+      message.success('保存成功！');
+    } else if (type == 'draft') {
+      await updateDraft(currObj?.id, { content: v });
+      await fetchData();
+      message.success('保存成功！');
+    } else if (type == 'about') {
+      await updateAbout({ content: v });
+      await fetchData();
+      message.success('保存成功！');
+    } else {
+    }
+    setLoading(false);
+  };
+  const autoSave = async (value) => {
+    if (type == 'draft') {
+      await updateDraft(currObj?.id, { content: value });
+      await fetchData();
+      message.success('自动保存成功！');
+    }
+  };
   return (
     <PageContainer
       className="editor-full"
@@ -122,7 +148,7 @@ export default function () {
                 const v = vd?.getValue();
                 if (!v?.includes('<!-- more -->')) {
                   message.warning(
-                    '缺少more标记，请点击工具栏第一个按钮在合适的地方插入标记！这样阅读全文前的内容才能被正确识别。',
+                    '缺少more标记，请点击工具栏第一个按钮在合适的地方插入标记！ 这样阅读全文前的内容才能被正确识别。',
                   );
                   return;
                 }
@@ -136,25 +162,7 @@ export default function () {
               }
               Modal.confirm({
                 title: `确定保存吗？${hasTags ? '' : '此文章还没设置标签呢'}`,
-                onOk: async () => {
-                  const v = vd?.getValue();
-                  setLoading(true);
-                  if (type == 'article') {
-                    await updateArticle(currObj?.id, { content: v });
-                    await fetchData();
-                    message.success('保存成功！');
-                  } else if (type == 'draft') {
-                    await updateDraft(currObj?.id, { content: v });
-                    await fetchData();
-                    message.success('保存成功！');
-                  } else if (type == 'about') {
-                    await updateAbout({ content: v });
-                    await fetchData();
-                    message.success('保存成功！');
-                  } else {
-                  }
-                  setLoading(false);
-                },
+                onOk: saveContent,
               });
             }}
           >
@@ -318,7 +326,15 @@ export default function () {
       }}
       footer={null}
     >
-      <Editor setVd={setVd} sysTheme={sysTheme} />
+      <Editor
+        setVd={setVd}
+        sysTheme={sysTheme}
+        onBlur={(value) => {
+          if (type == 'draft') {
+            autoSave(value);
+          }
+        }}
+      />
     </PageContainer>
   );
 }

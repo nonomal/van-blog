@@ -98,7 +98,7 @@ const mobileToolBar = [
 ];
 
 export default function Editor(props) {
-  const { sysTheme } = props;
+  const { sysTheme, onBlur } = props;
   const initTheme = sysTheme;
   const { current } = useRef<{ editor: Vditor }>({ editor: null });
   const [loading, setLoading] = useState(false);
@@ -175,6 +175,11 @@ export default function Editor(props) {
           hljs: {
             style: initTheme == 'light' ? 'github' : 'native',
           },
+        },
+        blur: (value) => {
+          if (onBlur) {
+            onBlur(value);
+          }
         },
         after: () => {
           props?.setVd(current.editor);
