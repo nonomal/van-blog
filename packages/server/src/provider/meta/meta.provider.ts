@@ -2,12 +2,11 @@ import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Meta, MetaDocument } from 'src/scheme/meta.schema';
-import { UpdateSiteInfoDto } from 'src/dto/site.dto';
-import { RewardItem } from 'src/dto/reward.dto';
-import { SocialItem, SocialType } from 'src/dto/social.dto';
-import { LinkItem } from 'src/dto/link.dto';
+import { UpdateSiteInfoDto } from 'src/types/site.dto';
+import { RewardItem } from 'src/types/reward.dto';
+import { SocialItem, SocialType } from 'src/types/social.dto';
+import { LinkItem } from 'src/types/link.dto';
 import { UserProvider } from '../user/user.provider';
-import { MenuItem } from 'src/dto/menu.dto';
 import { VisitProvider } from '../visit/visit.provider';
 import { ArticleProvider } from '../article/article.provider';
 import dayjs from 'dayjs';
@@ -16,6 +15,7 @@ import { ViewerProvider } from '../viewer/viewer.provider';
 @Injectable()
 export class MetaProvider {
   logger = new Logger(MetaProvider.name);
+  timer = null;
   constructor(
     @InjectModel('Meta')
     private metaModel: Model<MetaDocument>,
@@ -27,10 +27,12 @@ export class MetaProvider {
   ) {}
 
   async updateTotalWords(reason: string) {
-    const total = await this.articleProvider.countTotalWords();
-    await this.update({ totalWordCount: total });
-    this.logger.log(`${reason}触发更新字数缓存：当前文章总字数: ${total}`);
-    return total;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(async () => {
+      const total = await this.articleProvider.countTotalWords();
+      await this.update({ totalWordCount: total });
+      this.logger.log(`${reason}触发更新字数缓存：当前文章总字数: ${total}`);
+    }, 1000 * 30);
   }
 
   async getViewer() {
@@ -63,8 +65,8 @@ export class MetaProvider {
     const r = /\/post\//;
     const isArticlePath = r.test(pathname);
     if (isArticlePath) {
-      await this.articleProvider.updateViewer(
-        parseInt(pathname.replace('/post/', '')),
+      await this.articleProvider.updateViewerByPathname(
+        pathname.replace('/post/', ''),
         isNewByPath,
       );
     }
@@ -101,6 +103,10 @@ export class MetaProvider {
         value: 'github',
       },
       {
+        label: 'Gitee',
+        value: 'gitee',
+      },
+      {
         label: '微信',
         value: 'wechat',
       },
@@ -132,9 +138,7 @@ export class MetaProvider {
   async getLinks() {
     return (await this.getAll())?.links;
   }
-  async getMenus() {
-    return (await this.getAll())?.menus;
-  }
+
   async updateAbout(newContent: string) {
     return this.metaModel.updateOne(
       {},
@@ -150,14 +154,8 @@ export class MetaProvider {
   async updateSiteInfo(updateSiteInfoDto: UpdateSiteInfoDto) {
     // @ts-ignore eslint-disable-next-line @typescript-eslint/ban-ts-comment
     const { name, password, ...updateDto } = updateSiteInfoDto;
-    if (name && name != '') {
-      this.userProvider.updateUser({ name: name, password });
-    }
     const oldSiteInfo = await this.getSiteInfo();
-    return this.metaModel.updateOne(
-      {},
-      { siteInfo: { ...oldSiteInfo, ...updateDto } },
-    );
+    return this.metaModel.updateOne({}, { siteInfo: { ...oldSiteInfo, ...updateDto } });
   }
 
   async addOrUpdateReward(addReward: Partial<RewardItem>) {
@@ -256,29 +254,7 @@ export class MetaProvider {
 
     return this.metaModel.updateOne({}, { links: newLinks });
   }
-  async addOrUpdateMemu(addMenuItemDto: Partial<MenuItem>) {
-    const meta = await this.getAll();
-    const toAdd: MenuItem = {
-      value: addMenuItemDto.value,
-      name: addMenuItemDto.name,
-    };
-    const newMenus = [];
-    let pushed = false;
 
-    meta.menus.forEach((r) => {
-      if (r.name === toAdd.name) {
-        pushed = true;
-        newMenus.push(toAdd);
-      } else {
-        newMenus.push(r);
-      }
-    });
-    if (!pushed) {
-      newMenus.push(toAdd);
-    }
-
-    return this.metaModel.updateOne({}, { menus: newMenus });
-  }
   async deleteLink(name: string) {
     const meta = await this.getAll();
     const newLinks = [];
@@ -288,15 +264,5 @@ export class MetaProvider {
       }
     });
     return this.metaModel.updateOne({}, { links: newLinks });
-  }
-  async deleteMenuItem(name: string) {
-    const meta = await this.getAll();
-    const newMemus = [];
-    meta.menus.forEach((r) => {
-      if (r.name !== name) {
-        newMemus.push(r);
-      }
-    });
-    return this.metaModel.updateOne({}, { menus: newMemus });
   }
 }

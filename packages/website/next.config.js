@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
-
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+  enabled: process.env.ANALYZE === "true",
+});
+const isDev = process.env.NODE_ENV == "development";
 const rewites =
   process.env.NODE_ENV == "development"
     ? {
@@ -19,20 +22,18 @@ const rewites =
     : {};
 
 const getAllowDomains = () => {
-  const isDev = process.env.NODE_ENV == "development";
-  if (isDev) {
-    return ["www.mereith.com", "pic.mereith.com", "192.168.5.11"];
-  }
   const domainsInEnv = process.env.VAN_BLOG_ALLOW_DOMAINS || "";
   if (domainsInEnv && domainsInEnv != "") {
     const arr = domainsInEnv.split(",");
     return arr;
   } else {
+    if (isDev) {
+      return ["pic.mereith.com",'localhost','127.0.0.1'];
+    }
     return [];
   }
 };
 const getCdnUrl = () => {
-  const isDev = process.env.NODE_ENV == "development";
   if (isDev) {
     return {};
   }
@@ -43,22 +44,15 @@ const getCdnUrl = () => {
     return {};
   }
 };
-module.exports = {
+module.exports = withBundleAnalyzer({
   reactStrictMode: true,
   output: "standalone",
   experimental: {
-    images: {
-      allowFutureImage: true,
-    },
-  },
-  publicRuntimeConfig: {
-    images: {
-      domains: getAllowDomains(),
-    },
+    largePageDataBytes: 1024 * 1024 * 10,
   },
   images: {
     domains: getAllowDomains(),
   },
   ...getCdnUrl(),
   ...rewites,
-};
+});

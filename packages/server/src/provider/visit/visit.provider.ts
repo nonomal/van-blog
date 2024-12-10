@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import dayjs from 'dayjs';
 import { Model } from 'mongoose';
-import { createVisitDto } from 'src/dto/visit.dto';
+import { createVisitDto } from 'src/types/visit.dto';
 import { Visit } from 'src/scheme/visit.schema';
 import { VisitDocument } from 'src/scheme/visit.schema';
 
@@ -46,10 +46,7 @@ export class VisitProvider {
     const today = dayjs().format('YYYY-MM-DD');
     const todayData = await this.findByDateAndPath(today, pathname);
     if (todayData) {
-      await this.visitModel.updateOne(
-        { _id: todayData.id },
-        { viewer, visited },
-      );
+      await this.visitModel.updateOne({ _id: todayData.id }, { viewer, visited });
     } else {
       await this.visitModel.create({
         date: today,
@@ -61,10 +58,7 @@ export class VisitProvider {
   }
 
   async getLastData(pathname: string) {
-    const lastData = await this.visitModel
-      .find({ pathname })
-      .sort({ date: -1 })
-      .limit(1);
+    const lastData = await this.visitModel.find({ pathname }).sort({ date: -1 }).limit(1);
     if (lastData && lastData.length > 0) {
       return lastData[0];
     }
@@ -78,7 +72,7 @@ export class VisitProvider {
   async findByDateAndPath(date: string, pathname: string): Promise<Visit> {
     return this.visitModel.findOne({ date, pathname }).exec();
   }
-  async getByArticleId(id: number) {
+  async getByArticleId(id: number | string) {
     const pathname = id == 0 ? `/about` : `/post/${id}`;
     const result = await this.visitModel
       .find({

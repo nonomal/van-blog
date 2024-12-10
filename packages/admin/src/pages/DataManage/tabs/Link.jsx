@@ -99,13 +99,12 @@ export default function () {
           rowKey="key"
           headerTitle="友情链接"
           actionRef={actionRef}
-          maxLength={5}
           scroll={{
             x: 960,
           }}
           recordCreatorProps={{
             position: 'bottom',
-            record: () => ({ key: Math.floor(Math.random() * 1000000) }),
+            record: () => ({ key: Date.now() }),
           }}
           loading={false}
           columns={columns}
@@ -121,6 +120,10 @@ export default function () {
             type: 'multiple',
             editableKeys,
             onSave: async (rowKey, data, row) => {
+              if (location.hostname == 'blog-demo.mereith.com') {
+                Modal.info({ title: '演示站禁止修改此项！' });
+                return;
+              }
               const toSaveObj = {
                 name: data.name,
                 url: data.url,

@@ -1,14 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { createViewerDto } from 'src/dto/viewer.dto';
+import { createViewerDto } from 'src/types/viewer.dto';
 import { Viewer, ViewerDocument } from 'src/scheme/viewer.schema';
 import dayjs from 'dayjs';
 @Injectable()
 export class ViewerProvider {
-  constructor(
-    @InjectModel('Viewer') private viewerModel: Model<ViewerDocument>,
-  ) {}
+  constructor(@InjectModel('Viewer') private viewerModel: Model<ViewerDocument>) {}
 
   async create(createViewerDto: createViewerDto): Promise<Viewer> {
     const createdData = new this.viewerModel(createViewerDto);
@@ -28,7 +26,8 @@ export class ViewerProvider {
 
   async getViewerGrid(num: number) {
     const curDate = dayjs();
-    const res = [];
+    const gridTotal = [];
+    const tmpArr = [];
     const today = { viewer: 0, visited: 0 };
     const lastDay = { viewer: 0, visited: 0 };
     for (let i = num; i >= 0; i--) {
@@ -52,15 +51,47 @@ export class ViewerProvider {
         }
       }
       if (lastDayData) {
-        res.push({
+        tmpArr.push({
           date: last,
           visited: lastDayData.visited,
           viewer: lastDayData.viewer,
         });
+        if (i != num + 1) {
+          gridTotal.push({
+            date: last,
+            visited: lastDayData.visited,
+            viewer: lastDayData.viewer,
+          });
+        }
       }
     }
+
+    const gridEachDay = [];
+    let pre = tmpArr[0];
+    for (let i = 1; i < tmpArr.length; i++) {
+      const curObj = tmpArr[i];
+      if (curObj) {
+        if (pre) {
+          gridEachDay.push({
+            date: curObj.date,
+            visited: curObj.visited - pre.visited,
+            viewer: curObj.viewer - pre.viewer,
+          });
+        } else {
+          gridEachDay.push({
+            date: curObj.date,
+            visited: curObj.visited,
+            viewer: curObj.viewer,
+          });
+        }
+      }
+      pre = curObj;
+    }
     return {
-      grid: res,
+      grid: {
+        total: gridTotal,
+        each: gridEachDay,
+      },
       add: {
         viewer: today.viewer - lastDay.viewer,
         visited: today.visited - lastDay.visited,

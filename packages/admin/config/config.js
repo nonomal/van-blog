@@ -1,4 +1,5 @@
 // https://umijs.org/config/
+import MonacoWebpackPlugin from 'monaco-editor-webpack-plugin';
 import { defineConfig } from 'umi';
 import defaultSettings from './defaultSettings';
 import proxy from './proxy';
@@ -27,7 +28,7 @@ export default defineConfig({
   },
   // umi routes: https://umijs.org/docs/routing
   routes,
-  // access: {},
+  access: {},
   // Theme for antd: https://ant.design/docs/react/customize-theme-cn
   theme: {
     // 如果不想要 configProvide 动态设置主题需要把这个设置为 default
@@ -52,4 +53,11 @@ export default defineConfig({
   mfsu: {},
   webpack5: {},
   exportStatic: {},
+  chainWebpack(memo, { env, webpack, createCSSRule }) {
+    memo
+      .plugin('monaco-editor-webpack-plugin')
+      .use(MonacoWebpackPlugin, [
+        { languages: ['css', 'json', 'html', 'javascript', 'typescript'] },
+      ]);
+  },
 });

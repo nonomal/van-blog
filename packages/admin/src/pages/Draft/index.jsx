@@ -1,11 +1,14 @@
+import ImportDraftModal from '@/components/ImportDraftModal';
 import NewDraftModal from '@/components/NewDraftModal';
 import { getDraftsByOption } from '@/services/van-blog/api';
 import { useNum } from '@/services/van-blog/useNum';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import RcResizeObserver from 'rc-resize-observer';
 import { useMemo, useRef, useState } from 'react';
+import { history } from 'umi';
 import { columns, draftKeysObj, draftKeysObjSmall } from './columes';
-
+import { Button, Space, message } from 'antd';
+import { batchExport, batchDelete } from '@/services/van-blog/batch';
 export default () => {
   const actionRef = useRef();
   const [colKeys, setColKeys] = useState(draftKeysObj);
@@ -45,6 +48,35 @@ export default () => {
           columns={columns}
           actionRef={actionRef}
           cardBordered
+          rowSelection={{
+            fixed: true,
+            preserveSelectedRowKeys: true,
+          }}
+          tableAlertOptionRender={({ selectedRowKeys, onCleanSelected }) => {
+            return (
+              <Space>
+                <a
+                  onClick={async () => {
+                    await batchDelete(selectedRowKeys, true);
+                    message.success('批量删除成功！');
+                    actionRef.current.reload();
+                    onCleanSelected();
+                  }}
+                >
+                  批量删除
+                </a>
+                <a
+                  onClick={() => {
+                    batchExport(selectedRowKeys, true);
+                    onCleanSelected();
+                  }}
+                >
+                  批量导出
+                </a>
+                <a onClick={onCleanSelected}>取消选择</a>
+              </Space>
+            );
+          }}
           request={async (params = {}, sort, filter) => {
             const option = {};
             if (sort.createdAt) {
@@ -109,8 +141,8 @@ export default () => {
           }}
           editable={false}
           columnsState={{
-            persistenceKey: 'van-blog-draft-table',
-            persistenceType: 'localStorage',
+            // persistenceKey: 'van-blog-draft-table',
+            // persistenceType: 'localStorage',
             value: colKeys,
             onChange(value) {
               setColKeys(value);
@@ -137,8 +169,16 @@ export default () => {
           toolBarRender={() => [
             <NewDraftModal
               key="newDraft123"
+              onFinish={(data) => {
+                actionRef?.current?.reload();
+                history.push(`/editor?type=draft&id=${data.id}`);
+              }}
+            />,
+            <ImportDraftModal
+              key="importDraftMarkdown"
               onFinish={() => {
                 actionRef?.current?.reload();
+                message.success('导入成功！');
               }}
             />,
           ]}

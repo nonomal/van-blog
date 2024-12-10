@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { CSSProperties, HTMLAttributes } from "react";
-import { PageItem, randomKey } from "./core";
+import { CSSProperties } from "react";
+import { PageItem } from "./core";
 const commonCls =
   "inline-flex justify-center items-center   transition-all text-gray-600";
 const btnCls =
@@ -13,17 +13,19 @@ const commonStyle: CSSProperties = {
 };
 const renderLink = (item: PageItem, isCur: boolean) => {
   return (
-    <Link href={item.href} key={randomKey(item)}>
-      <a
+    <Link
+      href={item.href}
+      key={`LinkItem-${item.page}-${item.type}-${item.href}`}
+    >
+      <div
         style={commonStyle}
-        className={`${commonCls} ${btnCls}  ${
-          isCur
-            ? "bg-gray-200 dark:bg-dark-hover dark:pg-text-dark-hover"
-            : "dark:bg-dark-1 dark:pg-text-dark "
-        }`}
+        className={`${commonCls} ${btnCls}  ${isCur
+          ? "bg-gray-200 dark:bg-dark-hover dark:pg-text-dark-hover"
+          : "dark:bg-dark-1 dark:pg-text-dark "
+          }`}
       >
         {item.page}
-      </a>
+      </div>
     </Link>
   );
 };
@@ -31,24 +33,27 @@ const renderBtn = (item: PageItem, disable: boolean, isNext: boolean) => {
   return (
     <Link
       href={item.href}
-      key={randomKey(item)}
-      // className="justify-center items-center "
+      key={`pagenav-btn-${item.page}-${item.href}-${isNext}`}
+    // className="justify-center items-center "
     >
-      <a
+      <div
         style={commonStyle}
         className={`${commonCls} dark:bg-dark-1 dark:pg-text-dark  ${btnCls}`}
       >
         {isNext ? "›" : "‹"}
-      </a>
+      </div>
     </Link>
   );
 };
 const renderMore = (item: PageItem, isNext: boolean) => {
   return (
-    <Link href={item.href} key={randomKey(item)}>
-      <a style={commonStyle} className={`dark:pg-text-dark ${commonCls}`}>
+    <Link
+      href={item.href}
+      key={`pagenav-more-${item.page}-${item.href}-${isNext}`}
+    >
+      <div style={commonStyle} className={`dark:pg-text-dark ${commonCls}`}>
         •••
-      </a>
+      </div>
     </Link>
   );
 };

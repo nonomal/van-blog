@@ -1,25 +1,15 @@
-version: "3"
+version: '3'
 
 services:
   vanblog:
-    # 默认国内原的，如果被限速可以用下面的
-    image: registry.cn-beijing.aliyuncs.com/mereith/van-blog:latest
-    # image: mereith/van-blog:latest
+    # 阿里云镜像源
+    # image: registry.cn-beijing.aliyuncs.com/mereith/van-blog:latest
+    image: mereith/van-blog:latest
     restart: always
     environment:
-      TZ: "Asia/Shanghai"
-      # 图片资源允许的域名，英文逗号分隔。作者 logo 加载不出来请检查此项。
-      VAN_BLOG_ALLOW_DOMAINS: "www.mereith.com"
-      # CDN URL，包含协议，部署到 cdn 的时候用。在开启 cdn 之前请不要设置此项。
-      # VAN_BLOG_CDN_URL: "https://www.mereith.com"
-      # mongodb 的地址
-      VAN_BLOG_DATABASE_URL: "mongodb://vanBlog:vanBlog@mongo:27017"
-      # jwt 密钥，随机字符串即可
-      VAN_BLOG_JWT_SECRET: "AnyString"
+      TZ: 'Asia/Shanghai'
       # 邮箱地址，用于自动申请 https 证书
-      EMAIL: "someone@mereith.com"
-      # 内嵌评论系统的 db 名，默认为 waline
-      VAN_BLOG_WALINE_DB: "waline"
+      EMAIL: 'someone@mereith.com'
     volumes:
       # 图床文件的存放地址，按需修改。
       - ${PWD}/data/static:/app/static
@@ -30,16 +20,14 @@ services:
       # caddy 证书存储
       - ${PWD}/caddy/data:/root/.local/share/caddy
     ports:
+      # 前面的是映射到宿主机的端口号，改端口的话该前面的
       - 80:80
       - 443:443
   mongo:
-    # 默认国内原的，如果被限速可以用下面的
-    image: registry.cn-beijing.aliyuncs.com/mereith/van-blog:mongo
-    # image: mongo
+    # 某些机器不支持 avx 会报错，所以默认用 v4 版本。有的话用最新的。
+    image: mongo:4.4.16
     restart: always
     environment:
-      TZ: "Asia/Shanghai"
-      MONGO_INITDB_ROOT_USERNAME: vanBlog
-      MONGO_INITDB_ROOT_PASSWORD: vanBlog
+      TZ: 'Asia/Shanghai'
     volumes:
       - ${PWD}/data/mongo:/data/db

@@ -1,5 +1,5 @@
 import AuthorCard, { AuthorCardProps } from "../components/AuthorCard";
-import Layout from "../components/layout";
+import Layout from "../components/Layout";
 import TimeLineItem from "../components/TimeLineItem";
 import { Article } from "../types/article";
 import { LayoutProps } from "../utils/getLayoutProps";
@@ -31,8 +31,11 @@ const TimeLine = (props: TimeLinePageProps) => {
             .map((eachDate: string) => {
               return (
                 <TimeLineItem
+                  openArticleLinksInNewWindow={
+                    props.layoutProps.openArticleLinksInNewWindow == "true"
+                  }
                   defaultOpen={true}
-                  key={Math.floor(Math.random() * 1000000)}
+                  key={`timeline-dateitem-${eachDate}`}
                   date={eachDate}
                   articles={props.sortedArticles[eachDate]}
                 ></TimeLineItem>

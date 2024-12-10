@@ -2,6 +2,7 @@
 
 /* eslint-disable */
 import { request } from 'umi';
+import { encodeQuerystring } from './encode';
 
 export async function fetchAllMeta(options) {
   return request('/api/admin/meta', {
@@ -9,9 +10,58 @@ export async function fetchAllMeta(options) {
     ...(options || {}),
   });
 }
+export async function activeISR() {
+  return request('/api/admin/isr', {
+    method: 'POST',
+  });
+}
 export async function getHttpsConfig() {
   return request('/api/admin/caddy/https', {
     method: 'GET',
+  });
+}
+export async function getLoginConfig() {
+  return request('/api/admin/setting/login', {
+    method: 'GET',
+  });
+}
+export async function updateLoginConfig(body) {
+  return request('/api/admin/setting/login', {
+    method: 'PUT',
+    data: body,
+  });
+}
+export async function getLayoutConfig() {
+  return request('/api/admin/setting/layout', {
+    method: 'GET',
+  });
+}
+export async function updateLayoutConfig(body) {
+  return request('/api/admin/setting/layout', {
+    method: 'PUT',
+    data: body,
+  });
+}
+export async function getWalineConfig() {
+  return request('/api/admin/setting/waline', {
+    method: 'GET',
+  });
+}
+export async function updateWalineConfig(body) {
+  return request('/api/admin/setting/waline', {
+    method: 'PUT',
+    data: body,
+  });
+}
+export async function getISRConfig() {
+  return request('/api/admin/isr', {
+    method: 'GET',
+  });
+}
+export async function updateISRConfig(body) {
+  return request('/api/admin/isr', {
+    method: 'PUT',
+    data: body,
   });
 }
 export async function clearCaddyLog() {
@@ -55,6 +105,11 @@ export async function scanImgsOfArticles() {
     method: 'POST',
   });
 }
+export async function exportAllImgs() {
+  return request('/api/admin/img/export', {
+    method: 'POST',
+  });
+}
 
 export async function login(body, options) {
   return request('/api/admin/auth/login', {
@@ -63,6 +118,19 @@ export async function login(body, options) {
       'Content-Type': 'application/json',
     },
     data: body,
+    ...(options || {}),
+  });
+}
+export async function logout(options) {
+  return request('/api/admin/auth/logout', {
+    method: 'POST',
+    ...(options || {}),
+  });
+}
+export async function restore(data, options) {
+  return request('/api/admin/auth/restore', {
+    method: 'POST',
+    data,
     ...(options || {}),
   });
 }
@@ -79,9 +147,88 @@ export async function deleteArticle(id) {
     method: 'DELETE',
   });
 }
+export async function createCollaborator(body) {
+  return request('/api/admin/collaborator', {
+    method: 'POST',
+    data: body,
+  });
+}
+export async function createCustomPage(body) {
+  return request('/api/admin/customPage', {
+    method: 'POST',
+    data: body,
+  });
+}
+export async function createCustomFile(path, subPath) {
+  return request(`/api/admin/customPage/file?path=${path}&subPath=${subPath}`, {
+    method: 'POST',
+  });
+}
+export async function createCustomFolder(path, subPath) {
+  return request(`/api/admin/customPage/file?path=${path}&subPath=${subPath}`, {
+    method: 'POST',
+  });
+}
+export async function updateCustomPage(body) {
+  return request('/api/admin/customPage', {
+    method: 'PUT',
+    data: body,
+  });
+}
+export async function updateCustomPageFileInFolder(pathname, filePath, content) {
+  return request('/api/admin/customPage/file', {
+    method: 'PUT',
+    data: {
+      pathname,
+      filePath,
+      content,
+    },
+  });
+}
+export async function deleteCustomPageByPath(path) {
+  return request('/api/admin/customPage?path=' + path, {
+    method: 'DELETE',
+  });
+}
+export async function getCustomPages() {
+  return request('/api/admin/customPage/all', {
+    method: 'GET',
+  });
+}
+export async function getCustomPageByPath(path) {
+  return request('/api/admin/customPage?path=' + path, {
+    method: 'GET',
+  });
+}
+export async function getCustomPageFolderTreeByPath(path) {
+  return request('/api/admin/customPage/folder?path=' + path, {
+    method: 'GET',
+  });
+}
+export async function getCustomPageFileDataByPath(path, key) {
+  return request('/api/admin/customPage/file?path=' + path + '&key=' + key, {
+    method: 'GET',
+  });
+}
+export async function updateCollaborator(body) {
+  return request('/api/admin/collaborator', {
+    method: 'PUT',
+    data: body,
+  });
+}
+export async function deleteCollaborator(id) {
+  return request(`/api/admin/collaborator/${id}`, {
+    method: 'DELETE',
+  });
+}
+export async function getAllCollaborators() {
+  return request(`/api/admin/collaborator`, {
+    method: 'GET',
+  });
+}
 
-export async function getAllCategories() {
-  return request(`/api/admin/category/all`, {
+export async function getAllCategories(withAllData = false) {
+  return request(`/api/admin/category/all?detail=${withAllData ? 'true' : 'false'}`, {
     method: 'GET',
   });
 }
@@ -109,12 +256,23 @@ export async function createCategory(body) {
   });
 }
 export async function updateCategory(name, value) {
-  return request(`/api/admin/category/${name}?value=${value}`, {
+  return request(`/api/admin/category/${name}`, {
+    method: 'PUT',
+    data: value,
+  });
+}
+export async function updateTag(name, value) {
+  return request(`/api/admin/tag/${name}?value=${value}`, {
     method: 'PUT',
   });
 }
+export async function deleteTag(name) {
+  return request(`/api/admin/tag/${name}`, {
+    method: 'DELETE',
+  });
+}
 export async function deleteCategory(name) {
-  return request(`/api/admin/category/${name}`, {
+  return request(`/api/admin/category/${encodeQuerystring(name)}`, {
     method: 'DELETE',
   });
 }
@@ -168,11 +326,7 @@ export async function deleteLink(name) {
     method: 'DELETE',
   });
 }
-export async function deleteMenu(name) {
-  return request(`/api/admin/meta/menu/${name}`, {
-    method: 'DELETE',
-  });
-}
+
 export async function createLink(body) {
   return request(`/api/admin/meta/link`, {
     method: 'POST',
@@ -213,6 +367,11 @@ export async function getSocialTypes() {
 }
 export async function getTags() {
   return request(`/api/admin/tag/all`, {
+    method: 'GET',
+  });
+}
+export async function getAllCollaboratorsList() {
+  return request(`/api/admin/collaborator/list`, {
     method: 'GET',
   });
 }
@@ -332,4 +491,58 @@ export async function getWelcomeData(tab, overviewNum = 5, viewNum = 5, articleT
       method: 'GET',
     },
   );
+}
+export async function getPiplelines() {
+  return request(`/api/admin/pipeline`, {
+    method: 'GET',
+  });
+}
+export async function getPipelineConfig() {
+  return request(`/api/admin/pipeline/config`, {
+    method: 'GET',
+  });
+}
+export async function getPipelineById(id) {
+  return request(`/api/admin/pipeline/${id}`, {
+    method: 'GET',
+  });
+}
+export async function updatePipelineById(id, data) {
+  return request(`/api/admin/pipeline/${id}`, {
+    method: 'PUT',
+    data,
+  });
+}
+export async function deletePipelineById(id) {
+  return request(`/api/admin/pipeline/${id}`, {
+    method: 'DELETE',
+  });
+}
+export async function createPipeline(data) {
+  return request(`/api/admin/pipeline`, {
+    method: 'POST',
+    data,
+  });
+}
+export async function triggerPipelineById(id, input) {
+  return request(`/api/admin/pipeline/trigger/${id}`, {
+    method: 'POST',
+    data: input,
+  });
+}
+export async function createApiToken(data) {
+  return request(`/api/admin/token`, {
+    method: 'POST',
+    data,
+  });
+}
+export async function deleteApiToken(id) {
+  return request(`/api/admin/token/${id}`, {
+    method: 'DELETE',
+  });
+}
+export async function getAllApiTokens() {
+  return request(`/api/admin/token`, {
+    method: 'GET',
+  });
 }

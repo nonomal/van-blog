@@ -2,7 +2,7 @@ import dayjs from "dayjs";
 import { useMemo } from "react";
 import { DonateItem } from "../api/getAllData";
 import AuthorCard, { AuthorCardProps } from "../components/AuthorCard";
-import Layout from "../components/layout";
+import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
 import { LayoutProps } from "../utils/getLayoutProps";
 import { getAboutPageProps } from "../utils/getPageProps";
@@ -16,7 +16,10 @@ export interface AboutPageProps {
   authorCardProps: AuthorCardProps;
   donates: DonateItem[];
   about: About;
+  pay: string[];
+  payDark: string[];
   showDonateInfo: "true" | "false";
+  showDonateInAbout: "true" | "false";
 }
 const getDonateTableMarkdown = (donates: DonateItem[]) => {
   let content = `
@@ -50,17 +53,28 @@ const AboutPage = (props: AboutPageProps) => {
       sideBar={<AuthorCard option={props.authorCardProps} />}
     >
       <PostCard
+        setContent={() => {}}
+        showExpirationReminder={
+          props.layoutProps.showExpirationReminder == "true"
+        }
+        openArticleLinksInNewWindow={false}
         id={0}
         key={"about"}
         private={false}
         title={"关于我"}
         updatedAt={new Date(props.about.updatedAt)}
         createdAt={new Date(props.about.updatedAt)}
+        pay={props.pay}
+        payDark={props.payDark}
         catelog={"about"}
         content={content}
         type={"about"}
         enableComment={props.layoutProps.enableComment}
         top={0}
+        customCopyRight={null}
+        showDonateInAbout={props.showDonateInAbout == "true"}
+        copyrightAggreement={props.layoutProps.copyrightAggreement}
+        showEditButton={props.layoutProps.showEditButton === "true"}
       ></PostCard>
     </Layout>
   );

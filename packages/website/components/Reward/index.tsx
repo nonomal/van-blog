@@ -1,8 +1,5 @@
-import { useContext, useEffect, useMemo, useState } from "react";
-import CopyToClipboard from "react-copy-to-clipboard";
-import { GlobalContext } from "../../utils/globalContext";
-import toast, { Toaster } from "react-hot-toast";
-import ImageBoxFuture from "../ImageBoxFuture";
+import { useContext, useMemo, useState } from "react";
+import { ThemeContext } from "../../utils/themeContext";
 
 export default function (props: {
   aliPay: string;
@@ -10,11 +7,11 @@ export default function (props: {
   aliPayDark: string;
   weChatPayDark: string;
   author: string;
-  id: number;
+  id: number | string;
 }) {
   const [show, setShow] = useState(false);
-  const { state } = useContext(GlobalContext);
-  const { theme } = state;
+  const { theme } = useContext(ThemeContext);
+
   const payUrl = useMemo(() => {
     const r = [];
     if (theme.includes("dark") && props.aliPayDark != "") {
@@ -29,14 +26,9 @@ export default function (props: {
     }
     return r;
   }, [theme, props]);
-  const [url, setUrl] = useState("");
-  useEffect(() => {
-    setUrl(window.location.href);
-  }, [setUrl]);
 
   return (
     <div className="mt-8">
-      <Toaster />
       {props.aliPay != "" && (
         <>
           <div className="text-center  select-none text-sm md:text-base mb-2 dark:text-dark">
@@ -58,54 +50,13 @@ export default function (props: {
             }}
           >
             <div className="flex justify-center">
-              <ImageBoxFuture
-                alt="logo ali pay"
-                src={payUrl[0]}
-                width={180}
-                height={250}
-                className={undefined}
-              ></ImageBoxFuture>
+              <img alt="ali pay" src={payUrl[0]} width={180} height={250} />
               <div className="w-4 inline-block"></div>
-              <ImageBoxFuture
-                alt="logo wechat pay"
-                className={undefined}
-                src={payUrl[1]}
-                width={180}
-                height={250}
-              ></ImageBoxFuture>
+              <img alt="wechat pay" src={payUrl[1]} width={180} height={250} />
             </div>
           </div>
         </>
       )}
-
-      <div className=" bg-gray-100 px-5 border-l-4 border-red-500  py-2 text-sm space-y-1 dark:text-dark  dark:bg-dark ">
-        <p>
-          <span className="mr-2">本文作者:</span>
-          <span>{props.author}</span>
-        </p>
-        <p>
-          <span className="mr-2">本文链接:</span>
-          <CopyToClipboard
-            text={url}
-            onCopy={() => {
-              toast.success("复制成功！", {
-                className: "toast",
-              });
-            }}
-          >
-            <span className="cursor-pointer border-b border-white hover:border-gray-500 dark:text-dark dark-border-hover dark:border-nav-dark">
-              {url}
-            </span>
-          </CopyToClipboard>
-        </p>
-        <p>
-          <span className="mr-2">版权声明:</span>
-          <span>
-            本博客所有文章除特别声明外，均采用 BY-NC-SA
-            许可协议。转载请注明出处！
-          </span>
-        </p>
-      </div>
     </div>
   );
 }

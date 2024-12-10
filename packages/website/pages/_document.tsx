@@ -1,10 +1,12 @@
-import { Html, Head, Main, NextScript } from "next/document";
+import { Head, Html, Main, NextScript } from "next/document";
+import Script from "next/script";
+import { getTheme, initTheme } from "../utils/theme";
 
 export default function Document() {
   return (
-    <Html className="light" lang="zh">
+    <Html className={getTheme(initTheme()).replace("auto-", "")} lang="zh">
       <Head>
-        <link rel="icon" href="/logo.svg"></link>
+        <Script src="/initTheme.js" strategy="beforeInteractive" />
       </Head>
       <body>
         <Main />

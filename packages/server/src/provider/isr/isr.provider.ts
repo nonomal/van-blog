@@ -3,40 +3,64 @@ import axios from 'axios';
 import { Article } from 'src/scheme/article.schema';
 import { sleep } from 'src/utils/sleep';
 import { ArticleProvider } from '../article/article.provider';
-import { CategoryProvider } from '../category/category.provider';
-import { TagProvider } from '../tag/tag.provider';
+import { RssProvider } from '../rss/rss.provider';
+import { SettingProvider } from '../setting/setting.provider';
+import { SiteMapProvider } from '../sitemap/sitemap.provider';
+export interface ActiveConfig {
+  postId?: number;
+  forceActice?: boolean;
+}
 @Injectable()
 export class ISRProvider {
   urlList = ['/', '/category', '/tag', '/timeline', '/about', '/link'];
   base = 'http://127.0.0.1:3001/api/revalidate?path=';
   logger = new Logger(ISRProvider.name);
+  timer = null;
   constructor(
     private readonly articleProvider: ArticleProvider,
-    private readonly categoryProvider: CategoryProvider,
-    private readonly tagProvider: TagProvider,
+    private readonly rssProvider: RssProvider,
+    private readonly sitemapProvider: SiteMapProvider,
+    private readonly settingProvider: SettingProvider,
   ) {}
-  async activeAllFn(info?: string) {
+  async activeAllFn(info?: string, activeConfig?: ActiveConfig) {
+    const isrConfig = await this.settingProvider.getISRSetting();
+    if (isrConfig?.mode == 'delay' && !activeConfig?.forceActice) {
+      this.logger.debug(`延时自动更新模式，阻止按需 ISR`);
+      return;
+    }
     if (info) {
       this.logger.log(info);
     } else {
       this.logger.log('首次启动触发全量渲染！');
     }
-    Promise.all([
-      this.activeUrls(this.urlList, false),
-      this.activePath('category'),
-      this.activePath('tag'),
-      this.activePath('page'),
-      this.activePath('post'),
-    ]).then(() => {
-      if (!info) {
-        this.logger.log('触发全量渲染完成！');
-      }
-    });
+    // ! 配置差的机器可能并发多了会卡，所以改成串行的。
+
+    await this.activeUrls(this.urlList, false);
+    let postId: any = null;
+    const articleWithThisId = await this.articleProvider.getById(postId, 'list');
+    if (articleWithThisId) {
+      postId = articleWithThisId.pathname || articleWithThisId.id;
+    }
+    await this.activePath('post', postId || undefined);
+    await this.activePath('page');
+    await this.activePath('category');
+    await this.activePath('tag');
+    this.logger.log('触发全量渲染完成！');
   }
-  async activeAll(info?: string) {
-    this.activeWithRetry(() => {
-      this.activeAllFn(info);
-    });
+  async activeAll(info?: string, delay?: number, activeConfig?: ActiveConfig) {
+    if (process.env['VANBLOG_DISABLE_WEBSITE'] === 'true') {
+      return;
+    }
+    if (this.timer) {
+      clearTimeout(this.timer);
+    }
+    this.timer = setTimeout(() => {
+      this.rssProvider.generateRssFeed(info || '', delay);
+      this.sitemapProvider.generateSiteMap(info || '', delay);
+      this.activeWithRetry(() => {
+        this.activeAllFn(info, activeConfig);
+      });
+    }, 1000);
   }
 
   async testConn() {
@@ -54,9 +78,7 @@ export class ISRProvider {
     for (let t = 0; t < max; t++) {
       const r = await this.testConn();
       if (t > 0) {
-        this.logger.warn(
-          `第${t}次重试触发增量渲染！来源：${info || '首次启动触发全量渲染！'}`,
-        );
+        this.logger.warn(`第${t}次重试触发增量渲染！来源：${info || '首次启动触发全量渲染！'}`);
       }
       if (r) {
         fn(info);
@@ -68,45 +90,46 @@ export class ISRProvider {
       }
     }
     if (!succ) {
-      this.logger.error(
-        `达到最大增量渲染重试次数！来源：${info || '首次启动触发全量渲染！'}`,
-      );
+      this.logger.error(`达到最大增量渲染重试次数！来源：${info || '首次启动触发全量渲染！'}`);
     }
   }
   async activeUrls(urls: string[], log: boolean) {
     for (const each of urls) {
-      this.activeUrl(each, log);
+      await this.activeUrl(each, log);
     }
   }
-  async activePath(type: 'category' | 'tag' | 'page' | 'post') {
+  async activePath(type: 'category' | 'tag' | 'page' | 'post', postId?: number) {
     switch (type) {
       case 'category':
-        const categoryUrls = await this.getCategoryUrls();
+        const categoryUrls = await this.sitemapProvider.getCategoryUrls();
         await this.activeUrls(categoryUrls, false);
         break;
       case 'page':
-        const pageUrls = await this.getPageUrls();
+        const pageUrls = await this.sitemapProvider.getPageUrls();
         await this.activeUrls(pageUrls, false);
         break;
       case 'tag':
-        const tagUrls = await this.getTagUrls();
+        const tagUrls = await this.sitemapProvider.getTagUrls();
         await this.activeUrls(tagUrls, false);
         break;
       case 'post':
         const articleUrls = await this.getArticleUrls();
-        await this.activeUrls(articleUrls, false);
+        if (postId) {
+          const urlsWithoutThisId = articleUrls.filter((u) => u !== `/post/${postId}`);
+          await this.activeUrls([`/post/${postId}`, ...urlsWithoutThisId], false);
+        } else {
+          await this.activeUrls(articleUrls, false);
+        }
         break;
     }
   }
 
   // 修改文章牵扯太多，暂时不用这个方法。
-  async activeArticleById(
-    id: number,
-    event: 'create' | 'delete' | 'update',
-    beforeObj?: Article,
-  ) {
-    const { article, pre, next } =
-      await this.articleProvider.getByIdWithPreNext(id, 'list');
+  async activeArticleById(id: number, event: 'create' | 'delete' | 'update', beforeObj?: Article) {
+    const { article, pre, next } = await this.articleProvider.getByIdOrPathnameWithPreNext(
+      id,
+      'list',
+    );
     // 无论是什么事件都先触发文章本身、标签和分类。
     this.activeUrl(`/post/${id}`, true);
     if (pre) {
@@ -176,40 +199,10 @@ export class ISRProvider {
     }
   }
 
-  async getPageUrls() {
-    const num = await this.articleProvider.getTotalNum(false);
-    const total = Math.ceil(num / 5);
-    const paths = [];
-    for (let i = 1; i <= total; i++) {
-      paths.push(`/page/${i}`);
-    }
-    return paths;
-  }
-  async getCategoryUrls() {
-    const categories = await this.categoryProvider.getAllCategories();
-    return categories.map((c) => {
-      return `/category/${c}`;
-    });
-  }
-  async getTagUrls() {
-    const tags = await this.tagProvider.getAllTags(false);
-    return tags.map((c) => {
-      return `/tag/${c}`;
-    });
-  }
   async getArticleUrls() {
-    const { articles } = await this.articleProvider.getByOption(
-      {
-        regMatch: false,
-        page: 1,
-        pageSize: -1,
-        toListView: true,
-        withWordCount: false,
-      },
-      true,
-    );
+    const articles = await this.articleProvider.getAll('list', true, true);
     return articles.map((a) => {
-      return `/post/${a.id}`;
+      return `/post/${a.pathname || a.id}`;
     });
   }
 }

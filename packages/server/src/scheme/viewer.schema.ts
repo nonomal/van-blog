@@ -11,10 +11,11 @@ export class Viewer extends Document {
   @Prop()
   viewer: number;
 
-  @Prop()
+  @Prop({ index: true })
   date: string;
 
   @Prop({
+    index: true,
     default: () => {
       return new Date();
     },

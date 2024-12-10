@@ -1,5 +1,5 @@
 import AuthorCard, { AuthorCardProps } from "../components/AuthorCard";
-import Layout from "../components/layout";
+import Layout from "../components/Layout";
 import TimeLineItem from "../components/TimeLineItem";
 import { Article } from "../types/article";
 import { LayoutProps } from "../utils/getLayoutProps";
@@ -30,6 +30,9 @@ const CategoryPage = (props: CategoryPageProps) => {
           {Object.keys(props.sortedArticles).map((key: string) => {
             return (
               <TimeLineItem
+                openArticleLinksInNewWindow={
+                  props.layoutProps.openArticleLinksInNewWindow == "true"
+                }
                 defaultOpen={false}
                 key={key}
                 date={key}

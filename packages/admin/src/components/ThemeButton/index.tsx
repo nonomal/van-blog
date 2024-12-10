@@ -11,8 +11,15 @@ export default function (props: { showText: boolean }) {
     if (newTheme == 'auto') {
       setTimer();
     }
-    const newSettings = { ...initialState?.settings, navTheme: beforeSwitchTheme(newTheme) };
-    setInitialState({ ...initialState, theme: newTheme, settings: newSettings });
+    const newSettings = {
+      ...initialState?.settings,
+      navTheme: beforeSwitchTheme(newTheme),
+    };
+    setInitialState({
+      ...initialState,
+      theme: newTheme,
+      settings: newSettings,
+    });
   };
   const theme = useMemo(() => {
     return initialState?.theme || 'auto';
@@ -58,7 +65,7 @@ export default function (props: { showText: boolean }) {
   const iconSize = 18;
   const textStyle = { marginLeft: 4 };
   return (
-    <div className={style['theme-button']} onClick={handleSwitch}>
+    <a className={style['theme-button']} onClick={handleSwitch}>
       <div
         style={{
           display: theme == 'light' ? 'flex' : 'none',
@@ -129,6 +136,6 @@ export default function (props: { showText: boolean }) {
           </span>
         ) : null}
       </div>
-    </div>
+    </a>
   );
 }

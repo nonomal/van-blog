@@ -11,13 +11,15 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
-
+import { config } from 'src/config';
 import { SettingProvider } from 'src/provider/setting/setting.provider';
-import { HttpsSetting } from 'src/dto/setting.dto';
+import { HttpsSetting } from 'src/types/setting.dto';
 import { CaddyProvider } from 'src/provider/caddy/caddy.provider';
 import { isIpv4 } from 'src/utils/ip';
+import { ApiToken } from 'src/provider/swagger/token';
 
 @ApiTags('caddy')
+@ApiToken
 @Controller('/api/admin/caddy')
 export class CaddyController {
   private readonly logger = new Logger(CaddyController.name);
@@ -25,7 +27,7 @@ export class CaddyController {
     private readonly settingProvider: SettingProvider,
     private readonly caddyProvider: CaddyProvider,
   ) {}
-  @UseGuards(AdminGuard)
+  @UseGuards(...AdminGuard)
   @Get('https')
   async getHttpsConfig() {
     const config = await this.settingProvider.getHttpsSetting();
@@ -49,16 +51,22 @@ export class CaddyController {
       throw new BadRequestException();
     }
   }
-  @UseGuards(AdminGuard)
+  @UseGuards(...AdminGuard)
   @Delete('log')
   async clearLog() {
+    if (config.demo && config.demo == 'true') {
+      return {
+        statusCode: 401,
+        message: '演示站禁止修改此项！',
+      };
+    }
     await this.caddyProvider.clearLog();
     return {
       statusCode: 200,
       data: '清除 Caddy 运行日志成功！',
     };
   }
-  @UseGuards(AdminGuard)
+  @UseGuards(...AdminGuard)
   @Get('log')
   async getCaddyLog() {
     const log = await this.caddyProvider.getLog();
@@ -67,7 +75,7 @@ export class CaddyController {
       data: log,
     };
   }
-  @UseGuards(AdminGuard)
+  @UseGuards(...AdminGuard)
   @Get('config')
   async getCaddyConfig() {
     const caddyConfig = await this.caddyProvider.getConfig();
@@ -76,9 +84,15 @@ export class CaddyController {
       data: JSON.stringify(caddyConfig, null, 2),
     };
   }
-  @UseGuards(AdminGuard)
+  @UseGuards(...AdminGuard)
   @Put('https')
   async updateHttpsConfig(@Body() dto: HttpsSetting) {
+    if (config.demo && config.demo == 'true') {
+      return {
+        statusCode: 401,
+        message: '演示站禁止修改此项！',
+      };
+    }
     const result = await this.caddyProvider.setRedirect(dto.redirect || false);
     if (!result) {
       return {

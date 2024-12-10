@@ -82,13 +82,12 @@ export default function () {
           actionRef={actionRef}
           rowKey="key"
           headerTitle="捐赠详情"
-          maxLength={5}
           scroll={{
             x: 960,
           }}
           recordCreatorProps={{
             position: 'bottom',
-            record: () => ({ key: Math.floor(Math.random() * 1000000) }),
+            record: () => ({ key: Date.now() }),
           }}
           loading={false}
           columns={columns}

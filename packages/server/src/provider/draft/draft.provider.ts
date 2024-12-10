@@ -1,18 +1,20 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CreateArticleDto } from 'src/dto/article.dto';
+import { CreateArticleDto } from 'src/types/article.dto';
 import {
   CreateDraftDto,
   PublishDraftDto,
   SearchDraftOption,
   UpdateDraftDto,
-} from 'src/dto/draft.dto';
+} from 'src/types/draft.dto';
 import { Draft, DraftDocument } from 'src/scheme/draft.schema';
 import { ArticleProvider } from '../article/article.provider';
+import { sleep } from 'src/utils/sleep';
 export type DraftView = 'admin' | 'public' | 'list';
 @Injectable()
 export class DraftProvider {
+  idLock = false;
   constructor(
     @InjectModel('Draft') private draftModel: Model<DraftDocument>,
     private readonly articleProvider: ArticleProvider,
@@ -24,6 +26,7 @@ export class DraftProvider {
     category: 1,
     updatedAt: 1,
     createdAt: 1,
+    author: 1,
     id: 1,
     _id: 0,
   };
@@ -35,6 +38,7 @@ export class DraftProvider {
     category: 1,
     updatedAt: 1,
     createdAt: 1,
+    author: 1,
     id: 1,
     _id: 0,
   };
@@ -45,6 +49,7 @@ export class DraftProvider {
     category: 1,
     updatedAt: 1,
     createdAt: 1,
+    author: 1,
     id: 1,
     _id: 0,
   };
@@ -87,9 +92,7 @@ export class DraftProvider {
     }
   }
 
-  async getByOption(
-    option: SearchDraftOption,
-  ): Promise<{ drafts: Draft[]; total: number }> {
+  async getByOption(option: SearchDraftOption): Promise<{ drafts: Draft[]; total: number }> {
     const query: any = {};
     const $and: any = [
       {
@@ -115,19 +118,19 @@ export class DraftProvider {
       const or: any = [];
       tags.forEach((t) => {
         or.push({
-          tags: { $regex: `${t}`, $options: '$i' },
+          tags: { $regex: `${t}`, $options: 'i' },
         });
       });
       and.push({ $or: or });
     }
     if (option.category) {
       and.push({
-        category: { $regex: `${option.category}`, $options: '$i' },
+        category: { $regex: `${option.category}`, $options: 'i' },
       });
     }
     if (option.title) {
       and.push({
-        title: { $regex: `${option.title}`, $options: '$i' },
+        title: { $regex: `${option.title}`, $options: 'i' },
       });
     }
     if (option.startTime || option.endTime) {
@@ -171,6 +174,7 @@ export class DraftProvider {
       content: draft.content,
       tags: draft.tags,
       category: draft.category,
+      author: draft.author,
     };
     for (const [k, v] of Object.entries(options || {})) {
       createArticleDto[k] = v;
@@ -198,8 +202,8 @@ export class DraftProvider {
     return this.draftModel
       .find({
         $or: [
-          { content: { $regex: `*${str}*`, $options: '$i' } },
-          { title: { $regex: `*${str}*`, $options: '$i' } },
+          { content: { $regex: `*${str}*`, $options: 'i' } },
+          { title: { $regex: `*${str}*`, $options: 'i' } },
         ],
       })
       .exec();
@@ -213,21 +217,20 @@ export class DraftProvider {
   }
 
   async updateById(id: number, updateDraftDto: UpdateDraftDto) {
-    return this.draftModel.updateOne(
-      { id },
-      { ...updateDraftDto, updatedAt: new Date() },
-    );
+    return this.draftModel.updateOne({ id }, { ...updateDraftDto, updatedAt: new Date() });
   }
 
   async getNewId() {
-    const maxObj = await this.draftModel
-      .find({})
-      .sort({ createdAt: -1 })
-      .exec();
-    if (maxObj.length) {
-      return maxObj[0].id + 1;
-    } else {
-      return 1;
+    while (this.idLock) {
+      await sleep(10);
     }
+    this.idLock = true;
+    const maxObj = await this.draftModel.find({}).sort({ id: -1 }).limit(1);
+    let res = 1;
+    if (maxObj.length) {
+      res = maxObj[0].id + 1;
+    }
+    this.idLock = false;
+    return res;
   }
 }

@@ -5,25 +5,29 @@ export type DraftDocument = Draft & Document;
 
 @Schema()
 export class Draft extends Document {
-  @Prop()
+  @Prop({ index: true, unique: true })
   id: number;
 
-  @Prop()
+  @Prop({ index: true })
   title: string;
 
   @Prop({ default: '' })
   content: string;
 
-  @Prop({ default: [] })
+  @Prop({ default: [], index: true })
   tags: string[];
 
-  @Prop()
+  @Prop({ index: true })
+  author: string;
+
+  @Prop({ index: true })
   category: string;
 
-  @Prop({ default: false })
+  @Prop({ default: false, index: true })
   deleted: boolean;
 
   @Prop({
+    index: true,
     default: () => {
       return new Date();
     },
@@ -31,6 +35,7 @@ export class Draft extends Document {
   createdAt: Date;
 
   @Prop({
+    index: true,
     default: () => {
       return new Date();
     },

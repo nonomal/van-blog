@@ -1,14 +1,15 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
-
+import { Permission } from 'src/types/access/access';
+export type UserType = 'admin' | 'collaborator';
 export type UserDocument = User & Document;
 
 @Schema()
 export class User extends Document {
-  @Prop()
+  @Prop({ index: true, unique: true })
   id: number;
 
-  @Prop()
+  @Prop({ index: true })
   name: string;
 
   @Prop()
@@ -20,6 +21,18 @@ export class User extends Document {
     },
   })
   createdAt: Date;
+
+  @Prop({ index: true })
+  type: UserType;
+
+  @Prop()
+  nickname?: string;
+
+  @Prop()
+  permissions?: Permission[];
+
+  @Prop({ index: true })
+  salt: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

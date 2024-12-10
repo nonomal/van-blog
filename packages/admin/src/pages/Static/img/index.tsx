@@ -18,7 +18,7 @@ import { createPortal } from 'react-dom';
 import { history, useModel } from 'umi';
 import TipTitle from '../../../components/TipTitle';
 import { useTab } from '../../../services/van-blog/useTab';
-import { StaticItem } from '../type';
+import type { StaticItem } from '../type';
 import { copyImgLink, downloadImg, getImgLink, mergeMetaInfo } from './tools';
 const MENU_ID = 'static-img';
 export const errorImg =
@@ -37,7 +37,26 @@ const ImgPage = () => {
   const [responsive, setResponsive] = useState(false);
   const [pageSize, setPageSize] = useNum(responsive ? 9 : 15, 'static-img-page-size');
   const [clickItem, setClickItem] = useState<StaticItem>();
-  const { initialState, setInitialState } = useModel('@@initialState');
+  const { initialState } = useModel('@@initialState');
+
+  const showDelBtn = useMemo(() => {
+    if (!initialState?.user) {
+      return false;
+    }
+    if (initialState?.user?.id == 0) {
+      return true;
+    } else {
+      const ps = initialState?.user?.permissions;
+      if (!ps || ps.length == 0) {
+        return false;
+      } else {
+        if (ps.includes('img:delete') || ps.includes('all')) {
+          return true;
+        }
+        return false;
+      }
+    }
+  }, [initialState]);
 
   const { show } = useContextMenu({
     id: MENU_ID,
@@ -73,7 +92,10 @@ const ImgPage = () => {
         copyImgLink(clickItem.realPath);
         break;
       case 'copyMarkdown':
-        copyImgLink(clickItem.realPath, true);
+        copyImgLink(clickItem.realPath, true, undefined, false);
+        break;
+      case 'copyMarkdownAbsolutely':
+        copyImgLink(clickItem.realPath, true, undefined, true);
         break;
       case 'delete':
         Modal.confirm({
@@ -197,12 +219,13 @@ const ImgPage = () => {
                 data.src,
                 true,
                 data.isNew ? '剪切板图片上传成功! ' : '剪切板图片已存在! ',
+                false,
               );
 
               fetchData();
             }}
-            url="/api/admin/img/upload"
-            accept=".png,.jpg,.jpeg,.webp,.jiff"
+            url="/api/admin/img/upload?withWaterMark=true"
+            accept=".png,.jpg,.jpeg,.webp,.jiff,.gif"
           />
           <UploadBtn
             setLoading={setLoading}
@@ -213,12 +236,13 @@ const ImgPage = () => {
                 info?.response?.data?.src,
                 true,
                 info?.response?.data?.isNew ? `${info.name} 上传成功! ` : `${info.name} 已存在! `,
+                false,
               );
 
               fetchData();
             }}
-            url="/api/admin/img/upload"
-            accept=".png,.jpg,.jpeg,.webp,.jiff"
+            url="/api/admin/img/upload?withWaterMark=true"
+            accept=".png,.jpg,.jpeg,.webp,.jiff,.gif"
           />
         </Space>
       }
@@ -231,13 +255,18 @@ const ImgPage = () => {
           <Item onClick={handleItemClick} data="copyMarkdown">
             复制 Markdown 链接
           </Item>
+          <Item onClick={handleItemClick} data="copyMarkdownAbsolutely">
+            复制完整 Markdown 链接
+          </Item>
           <Separator />
           <Item onClick={handleItemClick} data="download">
             下载
           </Item>
-          <Item onClick={handleItemClick} data="delete">
-            删除
-          </Item>
+          {showDelBtn && (
+            <Item onClick={handleItemClick} data="delete">
+              删除
+            </Item>
+          )}
           <Separator />
           <Item onClick={handleItemClick} data="info">
             信息

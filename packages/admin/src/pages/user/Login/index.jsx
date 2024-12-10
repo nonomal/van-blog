@@ -1,5 +1,6 @@
 import Footer from '@/components/Footer';
 import { login } from '@/services/van-blog/api';
+import { encryptPwd } from '@/services/van-blog/encryptPwd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-form';
 import { message } from 'antd';
@@ -51,20 +52,26 @@ const Login = () => {
     <div className={styles.container}>
       <div className={styles.content}>
         <LoginForm
-          logo={<img alt="logo" src="/admin/logo.svg" />}
+          className={styles.loginForm}
+          logo={<img alt="logo" src="/logo.svg" />}
           title="VanBlog"
           subTitle={'VanBlog 博客管理后台'}
           initialValues={{
             autoLogin: true,
           }}
           onFinish={async (values) => {
-            await handleSubmit(values);
+            const { username, password } = values;
+            await handleSubmit({
+              username,
+              password: encryptPwd(username, password),
+            });
           }}
         >
           {type === 'account' && (
             <>
               <ProFormText
                 name="username"
+                autoComplete="off"
                 fieldProps={{
                   size: 'large',
                   prefix: <UserOutlined className={styles.prefixIcon} />,
@@ -79,6 +86,7 @@ const Login = () => {
               />
               <ProFormText.Password
                 name="password"
+                autoComplete="off"
                 fieldProps={{
                   size: 'large',
                   prefix: <LockOutlined className={styles.prefixIcon} />,
@@ -96,11 +104,20 @@ const Login = () => {
           <div
             style={{
               marginBottom: 24,
+              display: 'flex',
+              justifyContent: 'space-between',
             }}
           >
             <ProFormCheckbox noStyle name="autoLogin">
               自动登录
             </ProFormCheckbox>
+            <a
+              onClick={() => {
+                history.push('/user/restore');
+              }}
+            >
+              忘记密码
+            </a>
           </div>
         </LoginForm>
       </div>

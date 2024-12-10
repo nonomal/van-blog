@@ -5,9 +5,11 @@ import { AdminGuard } from 'src/provider/auth/auth.guard';
 import { Request } from 'express';
 import { MetaProvider } from 'src/provider/meta/meta.provider';
 import { getVersionFromServer } from 'src/utils/getVersion';
+import { ApiToken } from 'src/provider/swagger/token';
 
 @ApiTags('meta')
-@UseGuards(AdminGuard)
+@UseGuards(...AdminGuard)
+@ApiToken
 @Controller('/api/admin/meta')
 export class MetaController {
   constructor(private readonly metaProvider: MetaProvider) {}
@@ -22,6 +24,7 @@ export class MetaController {
       user: req.user,
       baseUrl: meta.siteInfo.baseUrl,
       enableComment: meta.siteInfo.enableComment || 'true',
+      allowDomains: process.env.VAN_BLOG_ALLOW_DOMAINS || '',
     };
     return {
       statusCode: 200,

@@ -2,13 +2,12 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminGuard } from 'src/provider/auth/auth.guard';
 
-import {
-  AnalysisProvider,
-  WelcomeTab,
-} from 'src/provider/analysis/analysis.provider';
+import { AnalysisProvider, WelcomeTab } from 'src/provider/analysis/analysis.provider';
+import { ApiToken } from 'src/provider/swagger/token';
 
 @ApiTags('analysis')
-@UseGuards(AdminGuard)
+@ApiToken
+@UseGuards(...AdminGuard)
 @Controller('/api/admin/analysis')
 export class AnalysisController {
   constructor(private readonly analysisProvider: AnalysisProvider) {}
@@ -22,9 +21,9 @@ export class AnalysisController {
   ) {
     const data = await this.analysisProvider.getWelcomePageData(
       tab,
-      overviewDataNum,
-      viewerDataNum,
-      articleTabDataNum,
+      parseInt(overviewDataNum as any),
+      parseInt(viewerDataNum as any),
+      parseInt(articleTabDataNum as any),
     );
     return {
       statusCode: 200,

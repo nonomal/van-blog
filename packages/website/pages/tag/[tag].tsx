@@ -1,11 +1,12 @@
 import { getPublicMeta } from "../../api/getAllData";
 import AuthorCard, { AuthorCardProps } from "../../components/AuthorCard";
-import Layout from "../../components/layout";
+import Layout from "../../components/Layout";
 import TimeLineItem from "../../components/TimeLineItem";
 import { Article } from "../../types/article";
 import { LayoutProps } from "../../utils/getLayoutProps";
 import { getTagPagesProps } from "../../utils/getPageProps";
 import { revalidate } from "../../utils/loadConfig";
+import Custom404 from "../404";
 export interface TagPagesProps {
   layoutProps: LayoutProps;
   authorCardProps: AuthorCardProps;
@@ -15,6 +16,9 @@ export interface TagPagesProps {
   wordTotal: number;
 }
 const TagPages = (props: TagPagesProps) => {
+  if (Object.keys(props.sortedArticles).length == 0) {
+    return <Custom404 name="标签" />;
+  }
   return (
     <Layout
       option={props.layoutProps}
@@ -34,6 +38,9 @@ const TagPages = (props: TagPagesProps) => {
             .map((eachDate: string) => {
               return (
                 <TimeLineItem
+                  openArticleLinksInNewWindow={
+                    props.layoutProps.openArticleLinksInNewWindow == "true"
+                  }
                   defaultOpen={true}
                   key={eachDate}
                   date={eachDate}

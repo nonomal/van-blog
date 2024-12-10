@@ -1,29 +1,24 @@
-import {
-  Inject,
-  Injectable,
-  forwardRef,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, forwardRef, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import {
-  CreateArticleDto,
-  SearchArticleOption,
-  UpdateArticleDto,
-} from 'src/dto/article.dto';
+import { CreateArticleDto, SearchArticleOption, UpdateArticleDto } from 'src/types/article.dto';
 import { Article, ArticleDocument } from 'src/scheme/article.schema';
 import { parseImgLinksOfMarkdown } from 'src/utils/parseImgOfMarkdown';
 import { wordCount } from 'src/utils/wordCount';
 import { MetaProvider } from '../meta/meta.provider';
 import { VisitProvider } from '../visit/visit.provider';
+import { sleep } from 'src/utils/sleep';
+import { CategoryDocument } from 'src/scheme/category.schema';
 
 export type ArticleView = 'admin' | 'public' | 'list';
 
 @Injectable()
 export class ArticleProvider {
+  idLock = false;
   constructor(
     @InjectModel('Article')
     private articleModel: Model<ArticleDocument>,
+    @InjectModel('Category') private categoryModal: Model<CategoryDocument>,
     @Inject(forwardRef(() => MetaProvider))
     private readonly metaProvider: MetaProvider,
     private readonly visitProvider: VisitProvider,
@@ -42,6 +37,10 @@ export class ArticleProvider {
     viewer: 1,
     visited: 1,
     private: 1,
+    hidden: 1,
+    author: 1,
+    copyright: 1,
+    pathname: 1,
   };
 
   adminView = {
@@ -60,6 +59,9 @@ export class ArticleProvider {
     _id: 0,
     viewer: 1,
     visited: 1,
+    author: 1,
+    copyright: 1,
+    pathname: 1,
   };
 
   listView = {
@@ -76,6 +78,9 @@ export class ArticleProvider {
     _id: 0,
     viewer: 1,
     visited: 1,
+    author: 1,
+    copyright: 1,
+    pathname: 1,
   };
 
   toPublic(oldArticles: Article[]) {
@@ -95,19 +100,21 @@ export class ArticleProvider {
   async create(
     createArticleDto: CreateArticleDto,
     skipUpdateWordCount?: boolean,
+    id?: number,
   ): Promise<Article> {
     const createdData = new this.articleModel(createArticleDto);
-    const newId = await this.getNewId();
+    const newId = id || (await this.getNewId());
     createdData.id = newId;
     if (!skipUpdateWordCount) {
       this.metaProvider.updateTotalWords('新建文章');
     }
-    return createdData.save();
+    const res = createdData.save();
+    return res;
   }
   async searchArticlesByLink(link: string) {
     const artciles = await this.articleModel.find(
       {
-        content: { $regex: link, $options: '$i' },
+        content: { $regex: link, $options: 'i' },
         $or: [
           {
             deleted: false,
@@ -144,8 +151,31 @@ export class ArticleProvider {
     return res;
   }
 
+  async updateViewerByPathname(pathname: string, isNew: boolean) {
+    let article = await this.getByPathName(pathname, 'list');
+    if (!article) {
+      // 这是通过 id 的吧。
+      article = await this.getById(Number(pathname), 'list');
+      if (!article) {
+        return;
+      }
+    }
+    const oldViewer = article.viewer || 0;
+    const oldVIsited = article.visited || 0;
+    const newViewer = oldViewer + 1;
+    const newVisited = isNew ? oldVIsited + 1 : oldVIsited;
+    const nowTime = new Date();
+    await this.articleModel.updateOne(
+      { id: article.id },
+      { visited: newVisited, viewer: newViewer, lastVisitedTime: nowTime },
+    );
+  }
+
   async updateViewer(id: number, isNew: boolean) {
     const article = await this.getById(id, 'list');
+    if (!article) {
+      return;
+    }
     const oldViewer = article.viewer || 0;
     const oldVIsited = article.visited || 0;
     const newViewer = oldViewer + 1;
@@ -235,11 +265,7 @@ export class ArticleProvider {
     // 用 visitProvider 里面的数据洗一下 article 的。
     const articles = await this.getAll('list', true);
     for (const a of articles) {
-      await this.visitProvider.rewriteToday(
-        `/post/${a.id}`,
-        a.viewer,
-        a.visited,
-      );
+      await this.visitProvider.rewriteToday(`/post/${a.id}`, a.viewer, a.visited);
     }
   }
 
@@ -250,11 +276,10 @@ export class ArticleProvider {
     //   articles[i].id = newId;
     // }
 
-    // 题目相同就合并，以导入的优先
+    // id 相同就合并，以导入的优先
     for (const a of articles) {
       const { id, ...createDto } = a;
-      const title = a.title;
-      const oldArticle = await this.findOneByTitle(title);
+      const oldArticle = await this.getById(id, 'admin');
       if (oldArticle) {
         this.updateById(
           oldArticle.id,
@@ -272,6 +297,7 @@ export class ArticleProvider {
             updatedAt: createDto.updatedAt || createDto.createdAt || new Date(),
           },
           true,
+          id,
         );
       }
     }
@@ -360,10 +386,15 @@ export class ArticleProvider {
     return thisView;
   }
 
-  async getAll(view: ArticleView, includeHidden: boolean): Promise<Article[]> {
+  async getAll(
+    view: ArticleView,
+    includeHidden: boolean,
+    includeDelete?: boolean,
+  ): Promise<Article[]> {
     const thisView: any = this.getView(view);
-    const $and: any = [
-      {
+    const $and: any = [];
+    if (!includeDelete) {
+      $and.push({
         $or: [
           {
             deleted: false,
@@ -372,8 +403,8 @@ export class ArticleProvider {
             deleted: { $exists: false },
           },
         ],
-      },
-    ];
+      });
+    }
     if (!includeHidden) {
       $and.push({
         $or: [
@@ -386,11 +417,14 @@ export class ArticleProvider {
         ],
       });
     }
+
     const articles = await this.articleModel
       .find(
-        {
-          $and,
-        },
+        $and.length > 0
+          ? {
+              $and,
+            }
+          : undefined,
         thisView,
       )
       .sort({ createdAt: -1 })
@@ -431,9 +465,7 @@ export class ArticleProvider {
       .sort({ createdAt: -1 })
       .exec();
     // 清洗一下数据。
-    const dates = Array.from(
-      new Set(articles.map((a) => a.createdAt.getFullYear())),
-    );
+    const dates = Array.from(new Set(articles.map((a) => a.createdAt.getFullYear())));
     const res: Record<string, Article[]> = {};
     dates.forEach((date) => {
       res[date] = articles.filter((a) => a.createdAt.getFullYear() == date);
@@ -497,7 +529,7 @@ export class ArticleProvider {
       tags.forEach((t) => {
         if (option.regMatch) {
           or.push({
-            tags: { $regex: `${t}`, $options: '$i' },
+            tags: { $regex: `${t}`, $options: 'i' },
           });
         } else {
           or.push({
@@ -510,7 +542,7 @@ export class ArticleProvider {
     if (option.category) {
       if (option.regMatch) {
         and.push({
-          category: { $regex: `${option.category}`, $options: '$i' },
+          category: { $regex: `${option.category}`, $options: 'i' },
         });
       } else {
         and.push({
@@ -520,7 +552,7 @@ export class ArticleProvider {
     }
     if (option.title) {
       and.push({
-        title: { $regex: `${option.title}`, $options: '$i' },
+        title: { $regex: `${option.title}`, $options: 'i' },
       });
     }
     if (option.startTime || option.endTime) {
@@ -589,18 +621,32 @@ export class ArticleProvider {
     const total = await this.articleModel.count(query).exec();
     // 过滤私有文章
     if (isPublic) {
-      articles = articles.map((a: any) => {
-        const isPrivate = a?._doc?.private || a?.private;
+      const tmpArticles: any[] = [];
+      for (const a of articles) {
+        //@ts-ignore
+        const isPrivateInArticle = a?._doc?.private || a?.private;
+        const category = await this.categoryModal.findOne({
+          //@ts-ignore
+          name: a?._doc?.category || a?.category,
+        });
+        const isPrivateInCategory = category?.private || false;
+        const isPrivate = isPrivateInArticle || isPrivateInCategory;
         if (isPrivate) {
-          return {
+          tmpArticles.push({
+            //@ts-ignore
             ...(a?._doc || a),
             content: undefined,
             password: undefined,
-          };
+            private: true,
+          });
         } else {
-          return { ...(a?._doc || a) };
+          tmpArticles.push({
+            //@ts-ignore
+            ...(a?._doc || a),
+          });
         }
-      });
+      }
+      articles = tmpArticles;
     }
     const resData: any = {};
     if (option.withWordCount) {
@@ -625,52 +671,112 @@ export class ArticleProvider {
     return resData;
   }
 
-  async getById(id: number, view: ArticleView): Promise<Article> {
+  async getByIdOrPathname(id: string | number, view: ArticleView) {
+    const articleByPathname = await this.getByPathName(String(id), view);
+
+    if (articleByPathname) {
+      return articleByPathname;
+    }
+    return await this.getById(Number(id), view);
+  }
+
+  async getByPathName(pathname: string, view: ArticleView): Promise<Article> {
+    const $and: any = [
+      {
+        $or: [
+          {
+            deleted: false,
+          },
+          {
+            deleted: { $exists: false },
+          },
+        ],
+      },
+    ];
+
     return await this.articleModel
       .findOne(
         {
-          id,
-          $or: [
-            {
-              deleted: false,
-            },
-            {
-              deleted: { $exists: false },
-            },
-          ],
+          pathname: decodeURIComponent(pathname),
+          $and,
         },
         this.getView(view),
       )
       .exec();
   }
-  async getByIdWithPassword(id: number, password: string): Promise<any> {
-    const article: any = await this.getById(id, 'admin');
+
+  async getById(id: number, view: ArticleView): Promise<Article> {
+    const $and: any = [
+      {
+        $or: [
+          {
+            deleted: false,
+          },
+          {
+            deleted: { $exists: false },
+          },
+        ],
+      },
+    ];
+
+    return await this.articleModel
+      .findOne(
+        {
+          id,
+          $and,
+        },
+        this.getView(view),
+      )
+      .exec();
+  }
+  async getByIdWithPassword(id: number | string, password: string): Promise<any> {
+    const article: any = await this.getByIdOrPathname(id, 'admin');
     if (!password) {
       return null;
     }
     if (!article) {
       return null;
     }
-    if (!article.password || article.password == '') {
+    const category =
+      (await this.categoryModal.findOne({
+        name: article.category,
+      })) || ({} as any);
+
+    const categoryPassword = category.private ? category.password : undefined;
+    const targetPassword = categoryPassword ? categoryPassword : article.password;
+    if (!targetPassword || targetPassword == '') {
       return { ...(article?._doc || article), password: undefined };
     } else {
-      if (article.password == password) {
+      if (targetPassword == password) {
         return { ...(article?._doc || article), password: undefined };
       } else {
         return null;
       }
     }
   }
-  async getByIdWithPreNext(id: number, view: ArticleView) {
-    const curArticle = await this.getById(id, view);
+  async getByIdOrPathnameWithPreNext(id: string | number, view: ArticleView) {
+    const curArticle = await this.getByIdOrPathname(id, view);
     if (!curArticle) {
       throw new NotFoundException('找不到文章');
     }
+
     if (curArticle.hidden) {
-      throw new NotFoundException('该文章是隐藏文章！');
+      const siteInfo = await this.metaProvider.getSiteInfo();
+      if (!siteInfo?.allowOpenHiddenPostByUrl || siteInfo?.allowOpenHiddenPostByUrl == 'false') {
+        throw new NotFoundException('该文章是隐藏文章！');
+      }
     }
     if (curArticle.private) {
       curArticle.content = undefined;
+    } else {
+      // 检查分类是不是加密了
+      const category = await this.categoryModal.findOne({
+        name: curArticle.category,
+      });
+      if (category && category.private) {
+        curArticle.private = true;
+        curArticle.content = undefined;
+      }
     }
     const res: any = { article: curArticle };
     // 找它的前一个和后一个。
@@ -684,19 +790,36 @@ export class ArticleProvider {
     }
     return res;
   }
-  async getPreArticleByArticle(article: Article, view: ArticleView) {
+  async getPreArticleByArticle(article: Article, view: ArticleView, includeHidden?: boolean) {
+    const $and: any = [
+      {
+        $or: [
+          {
+            deleted: false,
+          },
+          {
+            deleted: { $exists: false },
+          },
+        ],
+      },
+      { createdAt: { $lt: article.createdAt } },
+    ];
+    if (!includeHidden) {
+      $and.push({
+        $or: [
+          {
+            hidden: false,
+          },
+          {
+            hidden: { $exists: false },
+          },
+        ],
+      });
+    }
     const result = await this.articleModel
       .find(
         {
-          createdAt: { $lt: article.createdAt },
-          $or: [
-            {
-              deleted: false,
-            },
-            {
-              deleted: { $exists: false },
-            },
-          ],
+          $and,
         },
         this.getView(view),
       )
@@ -707,19 +830,36 @@ export class ArticleProvider {
     }
     return null;
   }
-  async getNextArticleByArticle(article: Article, view: ArticleView) {
+  async getNextArticleByArticle(article: Article, view: ArticleView, includeHidden?: boolean) {
+    const $and: any = [
+      {
+        $or: [
+          {
+            deleted: false,
+          },
+          {
+            deleted: { $exists: false },
+          },
+        ],
+      },
+      { createdAt: { $gt: article.createdAt } },
+    ];
+    if (!includeHidden) {
+      $and.push({
+        $or: [
+          {
+            hidden: false,
+          },
+          {
+            hidden: { $exists: false },
+          },
+        ],
+      });
+    }
     const result = await this.articleModel
       .find(
         {
-          createdAt: { $gt: article.createdAt },
-          $or: [
-            {
-              deleted: false,
-            },
-            {
-              deleted: { $exists: false },
-            },
-          ],
+          $and,
         },
         this.getView(view),
       )
@@ -746,17 +886,14 @@ export class ArticleProvider {
     }));
   }
 
-  async searchByString(
-    str: string,
-    includeHidden: boolean,
-  ): Promise<Article[]> {
+  async searchByString(str: string, includeHidden: boolean): Promise<Article[]> {
     const $and: any = [
       {
         $or: [
-          { content: { $regex: `${str}`, $options: '$i' } },
-          { title: { $regex: `${str}`, $options: '$i' } },
-          { category: { $regex: `${str}`, $options: '$i' } },
-          { tags: { $regex: `${str}`, $options: '$i' } },
+          { content: { $regex: `${str}`, $options: 'i' } },
+          { title: { $regex: `${str}`, $options: 'i' } },
+          { category: { $regex: `${str}`, $options: 'i' } },
+          { tags: { $regex: `${str}`, $options: 'i' } },
         ],
       },
       {
@@ -788,24 +925,13 @@ export class ArticleProvider {
       })
       .exec();
     const s = str.toLocaleLowerCase();
-    const titleData = rawData.filter((each) =>
-      each.title.toLocaleLowerCase().includes(s),
-    );
-    const contentData = rawData.filter((each) =>
-      each.content.toLocaleLowerCase().includes(s),
-    );
-    const categoryData = rawData.filter((each) =>
-      each.category.toLocaleLowerCase().includes(s),
-    );
+    const titleData = rawData.filter((each) => each.title.toLocaleLowerCase().includes(s));
+    const contentData = rawData.filter((each) => each.content.toLocaleLowerCase().includes(s));
+    const categoryData = rawData.filter((each) => each.category.toLocaleLowerCase().includes(s));
     const tagData = rawData.filter((each) =>
       each.tags.map((t) => t.toLocaleLowerCase()).includes(s),
     );
-    const sortedData = [
-      ...titleData,
-      ...contentData,
-      ...tagData,
-      ...categoryData,
-    ];
+    const sortedData = [...titleData, ...contentData, ...tagData, ...categoryData];
     const resData = [];
     for (const e of sortedData) {
       if (!resData.includes(e)) {
@@ -819,18 +945,12 @@ export class ArticleProvider {
     return this.articleModel.find({}).exec();
   }
   async deleteById(id: number) {
-    const res = await this.articleModel
-      .updateOne({ id }, { deleted: true })
-      .exec();
+    const res = await this.articleModel.updateOne({ id }, { deleted: true }).exec();
     this.metaProvider.updateTotalWords('删除文章');
     return res;
   }
 
-  async updateById(
-    id: number,
-    updateArticleDto: UpdateArticleDto,
-    skipUpdateWordCount?: boolean,
-  ) {
+  async updateById(id: number, updateArticleDto: UpdateArticleDto, skipUpdateWordCount?: boolean) {
     const res = await this.articleModel.updateOne(
       { id },
       {
@@ -845,11 +965,16 @@ export class ArticleProvider {
   }
 
   async getNewId() {
-    const maxObj = await this.articleModel.find({}).sort({ id: -1 }).exec();
-    if (maxObj.length) {
-      return maxObj[0].id + 1;
-    } else {
-      return 1;
+    while (this.idLock) {
+      await sleep(10);
     }
+    this.idLock = true;
+    const maxObj = await this.articleModel.find({}).sort({ id: -1 }).limit(1);
+    let res = 1;
+    if (maxObj.length) {
+      res = maxObj[0].id + 1;
+    }
+    this.idLock = false;
+    return res;
   }
 }

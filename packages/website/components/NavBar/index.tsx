@@ -1,13 +1,15 @@
 import Link from "next/link";
 import Headroom from "headroom.js";
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import SearchCard from "../SearchCard";
 import ThemeButton from "../ThemeButton";
 import KeyCard from "../KeyCard";
-import { GlobalContext } from "../../utils/globalContext";
 import { MenuItem } from "../../api/getAllData";
 import AdminButton from "../AdminButton";
-import ImageBoxFuture from "../ImageBoxFuture";
+import { ThemeContext } from "../../utils/themeContext";
+import RssButton from "../RssButton";
+import Item from "./item";
+import { encodeQuerystring } from "../../utils/encode";
 export default function (props: {
   logo: string;
   logoDark: string;
@@ -15,17 +17,20 @@ export default function (props: {
   setOpen: (open: boolean) => void;
   isOpen: boolean;
   siteName: string;
-  links: MenuItem[];
+  menus: MenuItem[];
   showSubMenu: "true" | "false";
   showAdminButton: "true" | "false";
   showFriends: "true" | "false";
+  showRSS: "true" | "false";
   headerLeftContent: "siteName" | "siteLogo";
+  defaultTheme: "dark" | "auto" | "light";
   subMenuOffset: number;
+  openArticleLinksInNewWindow: boolean;
 }) {
   const [showSearch, setShowSearch] = useState(false);
   const [headroom, setHeadroom] = useState<Headroom>();
-  const { state } = useContext(GlobalContext);
-  const { theme } = state;
+  const { theme } = useContext(ThemeContext);
+
   const picUrl = useMemo(() => {
     if (theme.includes("dark") && props.logoDark && props.logoDark != "") {
       return props.logoDark;
@@ -44,33 +49,17 @@ export default function (props: {
     };
   }, [headroom, setHeadroom]);
 
-  const renderedLinks = useCallback(() => {
-    const arr: any[] = [];
-    props.links.forEach((item) => {
-      arr.push(
-        <li
-          key={item.name}
-          className="nav-item transform hover:scale-110 dark:border-nav-dark  dark:transition-all"
-        >
-          <a
-            className="h-full flex items-center px-2 md:px-4 ua"
-            href={item.value}
-            target="_blank"
-          >
-            {item.name}
-          </a>
-        </li>
-      );
-    });
-    return arr;
-  }, [props]);
   return (
     <>
-      <SearchCard visible={showSearch} setVisible={setShowSearch}></SearchCard>
+      <SearchCard
+        openArticleLinksInNewWindow={props.openArticleLinksInNewWindow}
+        visible={showSearch}
+        setVisible={setShowSearch}
+      ></SearchCard>
       <div
         id="nav"
         className=" bg-white sticky top-0 dark:bg-dark nav-shadow dark:nav-shadow-dark"
-        style={{ zIndex: 1200 }}
+        style={{ zIndex: 90 }}
       >
         {/* 上面的导航栏 */}
         <div
@@ -107,82 +96,45 @@ export default function (props: {
             </div>
             {props.headerLeftContent == "siteLogo" && (
               <div className="hidden md:block transform translate-x-2">
-                <ImageBoxFuture
+                <img
                   alt="site logo"
                   src={picUrl}
                   width={52}
                   height={52}
-                  className={""}
-                ></ImageBoxFuture>
+                  className=""
+                />
               </div>
             )}
           </div>
           {props.headerLeftContent == "siteName" && (
-            <div className="text-gray-800 select-none text-lg dark:text-dark lg:text-xl font-medium  mr-4 hidden md:block">
-              {props.siteName}
-            </div>
+            <Link href="/">
+              <div className="text-gray-800 cursor-pointer select-none text-lg dark:text-dark lg:text-xl font-medium  mr-4 hidden md:block">
+                {props.siteName}
+              </div>
+            </Link>
           )}
           {/* 第二个flex */}
-          <div className="flex justify-between h-full flex-grow ">
+          <div className="flex justify-between h-full flex-grow nav-content">
             <div
               style={{ transform: "translateX(30px)" }}
-              className=" md:hidden  flex-grow text-center  flex items-center justify-center select-none dark:text-dark"
+              className="cursor-pointer md:hidden  flex-grow text-center  flex items-center justify-center select-none dark:text-dark"
             >
-              <div>{props.siteName}</div>
+              <Link href="/">
+                <div>{props.siteName}</div>
+              </Link>
             </div>
             <ul className=" md:flex h-full items-center  text-sm text-gray-600 dark:text-dark hidden">
-              <li className="nav-item transform hover:scale-110  dark:border-nav-dark dark:transition-all">
-                <Link href={"/"}>
-                  <a className="h-full flex items-center px-2 md:px-4 ua ">
-                    首页
-                  </a>
-                </Link>
-              </li>
-              <li className="nav-item transform hover:scale-110  dark:border-nav-dark  dark:transition-all">
-                <Link href={"/tag"}>
-                  <a className="h-full flex items-center px-2 md:px-4 ua">
-                    标签
-                  </a>
-                </Link>
-              </li>
-              <li className="nav-item transform hover:scale-110  dark:border-nav-dark  dark:transition-all">
-                <Link href={"/category"}>
-                  <a className="h-full flex items-center px-2 md:px-4 ua">
-                    分类
-                  </a>
-                </Link>
-              </li>
-              <li className="nav-item transform hover:scale-110  dark:border-nav-dark  dark:transition-all">
-                <Link href={"/timeline"}>
-                  <a className="h-full flex items-center px-2 md:px-4 ua">
-                    时间线
-                  </a>
-                </Link>
-              </li>
-              {props.showFriends == "true" && (
-                <li className="nav-item transform hover:scale-110  dark:border-nav-dark  dark:transition-all">
-                  <Link href={"/link"}>
-                    <a className="h-full flex items-center px-2 md:px-4 ua">
-                      友链
-                    </a>
-                  </Link>
-                </li>
-              )}
-              <li className="nav-item transform hover:scale-110  dark:border-nav-dark  dark:transition-all">
-                <Link href={"/about"}>
-                  <a className="h-full flex items-center px-2 md:px-4 ua">
-                    关于
-                  </a>
-                </Link>
-              </li>
-              {renderedLinks()}
+              {props.menus.map((m) => {
+                return <Item key={m.id} item={m} />;
+              })}
             </ul>
-            <div className="flex">
+            <div className="flex nav-action">
               <div
                 onClick={() => {
                   setShowSearch(true);
                   document.body.style.overflow = "hidden";
                 }}
+                title="搜索"
                 className="flex group transform hover:scale-110 transition-all select-none cursor-pointer"
               >
                 <div className="flex items-center mr-0 sm:mr-2 hover:cursor-pointer   transition-all dark:text-dark fill-gray-600">
@@ -208,13 +160,16 @@ export default function (props: {
                   <KeyCard type="search"></KeyCard>
                 </div>
               </div>
-              <ThemeButton />
+              <ThemeButton defaultTheme={props.defaultTheme} />
+              {props.showRSS == "true" && (
+                <RssButton showAdminButton={props.showAdminButton == "true"} />
+              )}
               {props.showAdminButton == "true" && <AdminButton />}
             </div>
           </div>
         </div>
         {Boolean(props.categories.length) && props.showSubMenu == "true" && (
-          <div className="h-10 items-center hidden md:flex border-b border-gray-200 dark:border-nav-dark">
+          <div className="h-10 items-center hidden md:flex border-b border-gray-200 dark:border-nav-dark overflow-hidden">
             <div
               className="mx-5"
               style={{ width: 52 + props.subMenuOffset }}
@@ -226,8 +181,8 @@ export default function (props: {
                     key={catelog}
                     className="flex items-center h-full md:px-2 hover:text-gray-900 dark:hover:text-dark-hover transform hover:scale-110 cursor-pointer transition-all"
                   >
-                    <Link href={`/category/${catelog}`}>
-                      <a>{catelog}</a>
+                    <Link href={`/category/${encodeQuerystring(catelog)}`}>
+                      <div>{catelog}</div>
                     </Link>
                   </li>
                 );

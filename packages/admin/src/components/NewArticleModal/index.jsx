@@ -1,6 +1,14 @@
 import { createArticle, getAllCategories, getTags } from '@/services/van-blog/api';
-import { ModalForm, ProFormSelect, ProFormText } from '@ant-design/pro-components';
-import { Button } from 'antd';
+import {
+  ModalForm,
+  ProFormDateTimePicker,
+  ProFormSelect,
+  ProFormText,
+} from '@ant-design/pro-components';
+import { Button, Modal } from 'antd';
+import moment from 'moment';
+import AuthorField from '../AuthorField';
+
 export default function (props) {
   const { onFinish } = props;
   return (
@@ -15,14 +23,21 @@ export default function (props) {
       autoFocusFirstInput
       submitTimeout={3000}
       onFinish={async (values) => {
+        if (location.hostname == 'blog-demo.mereith.com') {
+          Modal.info({
+            title: '演示站禁止新建文章！',
+            content: '本来是可以的，但有个人在演示站首页放黄色信息，所以关了这个权限了。',
+          });
+          return;
+        }
         const washedValues = {};
         for (const [k, v] of Object.entries(values)) {
           washedValues[k.replace('C', '')] = v;
         }
 
-        await createArticle(washedValues);
+        const { data } = await createArticle(washedValues);
         if (onFinish) {
-          onFinish();
+          onFinish(data);
         }
 
         return true;
@@ -40,12 +55,21 @@ export default function (props) {
         placeholder="请输入标题"
         rules={[{ required: true, message: '这是必填项' }]}
       />
+      <AuthorField />
       <ProFormText
         width="md"
         id="topC"
         name="topC"
         label="置顶优先级"
         placeholder="留空或0表示不置顶，其余数字越大表示优先级越高"
+      />
+      <ProFormText
+        width="md"
+        id="pathnameC"
+        name="pathnameC"
+        label="自定义路径名"
+        tooltip="文章发布后的路径将为 /post/[自定义路径名]，如果未设置则使用文章 id 作为路径名"
+        placeholder="留空或为空则使用 id 作为路径名"
       />
       <ProFormSelect
         mode="tags"
@@ -64,6 +88,7 @@ export default function (props) {
         required
         id="categoryC"
         name="categoryC"
+        tooltip="首次使用请先在站点管理-数据管理-分类管理中添加分类"
         label="分类"
         placeholder="请选择分类"
         rules={[{ required: true, message: '这是必填项' }]}
@@ -77,6 +102,17 @@ export default function (props) {
           });
         }}
       />
+      <ProFormDateTimePicker
+        placeholder="不填默认为此刻"
+        name="createdAtC"
+        id="createdAtC"
+        label="创建时间"
+        width="md"
+        showTime={{
+          defaultValue: moment('00:00:00', 'HH:mm:ss'),
+        }}
+      />
+
       <ProFormSelect
         width="md"
         name="privateC"
@@ -123,6 +159,14 @@ export default function (props) {
             },
           ];
         }}
+      />
+      <ProFormText
+        width="md"
+        id="copyrightC"
+        name="copyrightC"
+        label="版权声明"
+        tooltip="设置后会替换掉文章页底部默认的版权声明文字，留空则根据系统设置中的相关选项进行展示"
+        placeholder="设置后会替换掉文章底部默认的版权"
       />
     </ModalForm>
   );

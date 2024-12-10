@@ -1,9 +1,12 @@
 #!/bin/sh
+echo "============================================="
 echo "欢迎使用 VanBlog 博客系统"
-echo "allow_domains: ${VAN_BLOG_ALLOW_DOMAINS}"
-echo "mongo_url: ${VAN_BLOG_DATABASE_URL}"
-sed "s/VAN_BLOG_EMAIL/${EMAIL}/g" /app/CaddyfileTemplate >/app/Caddyfile
-caddy start --config /app/Caddyfile
+echo "Github: https://github.com/mereithhh/vanblog"
+echo "Version(Env): ${VAN_BLOG_VERSION}"
+echo "============================================="
 
-cd /app/website/ && nohup yarn start >/var/log/vanblog-website.log 2>&1 &
-cd /app/server && node main.js
+
+sed "s/VAN_BLOG_EMAIL/${EMAIL}/g" /app/caddyTemplate.json >/app/caddy.json
+caddy start --config /app/caddy.json
+
+node start.js

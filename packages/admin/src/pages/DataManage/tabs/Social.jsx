@@ -86,13 +86,12 @@ export default function () {
           actionRef={actionRef}
           rowKey="key"
           headerTitle="联系方式"
-          maxLength={5}
           scroll={{
             x: 960,
           }}
           recordCreatorProps={{
             position: 'bottom',
-            record: () => ({ key: Math.floor(Math.random() * 1000000) }),
+            record: () => ({ key: Date.now() }),
           }}
           loading={false}
           columns={columns}
@@ -108,6 +107,10 @@ export default function () {
             type: 'multiple',
             editableKeys,
             onSave: async (rowKey, data, row) => {
+              if (location.hostname == 'blog-demo.mereith.com') {
+                Modal.info({ title: '演示站禁止修改此项！' });
+                return;
+              }
               const toSaveObj = {
                 type: data.type,
                 value: data.value,

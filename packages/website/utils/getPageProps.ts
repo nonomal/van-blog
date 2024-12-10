@@ -11,7 +11,7 @@ import { PostPagesProps } from "../pages/post/[id]";
 import { PagePagesProps } from "../pages/page/[p]";
 import { CategoryPagesProps } from "../pages/category/[category]";
 import {
-  getArticleById,
+  getArticleByIdOrPathname,
   getArticlesByCategory,
   getArticlesByOption,
   getArticlesByTimeLine,
@@ -90,12 +90,32 @@ export async function getAboutPageProps(): Promise<AboutPageProps> {
   if (data.meta.siteInfo?.showDonateInfo == "false") {
     showDonateInfo = "false";
   }
+  let showDonateInAbout: "true" | "false" = "false";
+
+  if (data.meta.siteInfo?.showDonateInAbout == "true") {
+    showDonateInAbout = "true";
+  }
+  if (data.meta.siteInfo?.showDonateButton == "false") {
+    showDonateInAbout = "false";
+  }
+  const payProps = {
+    pay: [
+      data.meta.siteInfo?.payAliPay || "",
+      data.meta.siteInfo?.payWechat || "",
+    ],
+    payDark: [
+      data.meta.siteInfo?.payAliPayDark || "",
+      data.meta.siteInfo?.payWechatDark || "",
+    ],
+  };
   return {
     showDonateInfo,
     layoutProps,
     authorCardProps,
     about,
     donates: data.meta?.rewards || [],
+    showDonateInAbout,
+    ...payProps,
   };
 }
 export async function getTagPagesProps(
@@ -115,7 +135,7 @@ export async function getTagPagesProps(
     withWordCount: true,
     toListView: true,
   });
-  const wordTotal = totalWordCount as number;
+  const wordTotal = totalWordCount || 0;
   const curNum = total;
   const sortedArticles = washArticlesByKey(
     articlesInThisTag,
@@ -147,12 +167,14 @@ export async function getPostPagesProps(
       data.meta.siteInfo?.payWechatDark || "",
     ],
   };
-  const currArticleProps = await getArticleById(parseInt(curId));
+  const currArticleProps = await getArticleByIdOrPathname(curId);
+  const { article } = currArticleProps;
+  const author = article?.author || data.meta.siteInfo.author;
   return {
     layoutProps,
     ...currArticleProps,
     ...payProps,
-    author: data.meta.siteInfo.author,
+    author,
     showSubMenu: layoutProps.showSubMenu,
   };
 }

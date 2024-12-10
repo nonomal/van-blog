@@ -1,6 +1,13 @@
-import { ModalForm, ProFormSelect, ProFormText } from '@ant-design/pro-components';
-import { Button } from 'antd';
 import { createDraft, getAllCategories, getTags } from '@/services/van-blog/api';
+import {
+  ModalForm,
+  ProFormDateTimePicker,
+  ProFormSelect,
+  ProFormText,
+} from '@ant-design/pro-components';
+import { Button } from 'antd';
+import moment from 'moment';
+import AuthorField from '../AuthorField';
 export default function (props) {
   const { onFinish } = props;
   return (
@@ -20,9 +27,9 @@ export default function (props) {
           washedValues[k.replace('C', '')] = v;
         }
 
-        await createDraft(washedValues);
+        const { data } = await createDraft(washedValues);
         if (onFinish) {
-          onFinish();
+          onFinish(data);
         }
         return true;
       }}
@@ -39,6 +46,7 @@ export default function (props) {
         placeholder="请输入标题"
         rules={[{ required: true, message: '这是必填项' }]}
       />
+      <AuthorField />
       <ProFormSelect
         mode="tags"
         tokenSeparators={[',']}
@@ -57,6 +65,7 @@ export default function (props) {
         id="categoryC"
         name="categoryC"
         label="分类"
+        tooltip="首次使用请先在站点管理-数据管理-分类管理中添加分类"
         placeholder="请选择分类"
         rules={[{ required: true, message: '这是必填项' }]}
         request={async () => {
@@ -67,6 +76,16 @@ export default function (props) {
               value: e,
             };
           });
+        }}
+      />
+      <ProFormDateTimePicker
+        width="md"
+        name="createdAtC"
+        id="createdAtC"
+        label="创建时间"
+        placeholder="不填默认为此刻"
+        showTime={{
+          defaultValue: moment('00:00:00', 'HH:mm:ss'),
         }}
       />
     </ModalForm>
